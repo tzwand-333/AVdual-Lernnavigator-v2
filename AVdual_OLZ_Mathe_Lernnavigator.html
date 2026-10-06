@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathe Lernnavigator - AVdual</title>
+    <style>
+        :root {
+            --bg-color: #0f172a; --surface-color: #1e293b; --surface-hover: #334155;
+            --primary-color: #38bdf8; --primary-hover: #0284c7; --text-color: #f8fafc;
+            --text-muted: #94a3b8; --success-color: #10b981; --accent-color: #f43f5e;
+            --warning-color: #f59e0b; --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--bg-color); color: var(--text-color); font-family: var(--font-family); line-height: 1.6; padding: 20px; }
+        #app-container { max-width: 1000px; margin: 0 auto; padding-bottom: 40px; }
+
+        header { text-align: center; margin-bottom: 30px; padding: 20px 0; border-bottom: 2px solid var(--surface-color); }
+        h1 { font-size: 2.2rem; color: var(--primary-color); margin-bottom: 10px; }
+        p.subtitle { color: var(--text-muted); font-size: 1.1rem; }
+
+        /* Regeln Offene Lernzeit */
+        .rules-box { background: rgba(56, 189, 248, 0.05); border: 1px solid var(--primary-color); border-radius: var(--radius); padding: 25px; margin-bottom: 30px; }
+        .rules-box h3 { color: var(--primary-color); margin-bottom: 15px; }
+        .rules-list { list-style-type: none; counter-reset: rule-counter; }
+        .rules-list li { margin-bottom: 12px; position: relative; padding-left: 35px; }
+        .rules-list li::before { counter-increment: rule-counter; content: counter(rule-counter); position: absolute; left: 0; top: 0; background: var(--primary-color); color: var(--bg-color); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; }
+
+        .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .btn-back { background-color: transparent; color: var(--primary-color); border: 2px solid var(--primary-color); padding: 10px 20px; border-radius: var(--radius); font-size: 1rem; font-weight: bold; cursor: pointer; display: none; }
+        .btn-back:hover { background-color: var(--primary-color); color: var(--bg-color); }
+        #breadcrumb { background-color: var(--surface-color); padding: 10px 15px; border-radius: 8px; font-size: 0.95rem; color: var(--text-muted); }
+        #breadcrumb span { color: var(--primary-color); font-weight: bold; }
+
+        .view { display: none; animation: fadeIn 0.3s ease; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .grid-menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .card-btn { background-color: var(--surface-color); border: 2px solid transparent; border-radius: var(--radius); padding: 25px 20px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; justify-content: center; min-height: 120px; }
+        .card-btn:hover { background-color: var(--surface-hover); border-color: var(--primary-color); transform: translateY(-3px); }
+        .card-btn h2 { font-size: 1.25rem; margin-bottom: 8px; color: var(--text-color); }
+        .card-btn p { color: var(--text-muted); font-size: 0.95rem; }
+
+        .niveau-A { border-left: 5px solid var(--success-color); }
+        .niveau-B { border-left: 5px solid var(--warning-color); }
+        .niveau-C { border-left: 5px solid var(--accent-color); }
+
+        .task-header { margin-bottom: 30px; }
+        .task-header h2 { font-size: 1.8rem; margin-bottom: 5px; color: var(--primary-color); }
+        .task-header p { color: var(--text-muted); font-size: 1.1rem; }
+
+        .example-card { background: linear-gradient(145deg, var(--surface-color), #283548); border: 1px solid var(--primary-color); border-radius: var(--radius); padding: 25px; margin-bottom: 40px; }
+        .example-card h3 { color: var(--primary-color); margin-bottom: 15px; }
+        
+        .task-list { display: flex; flex-direction: column; gap: 20px; margin-bottom: 30px;}
+        .task-card { background-color: var(--surface-color); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+
+        .task-title-nr { font-weight: bold; color: var(--primary-color); margin-bottom: 5px; font-size: 1.1rem; }
+        .task-question { font-size: 1.15rem; line-height: 1.5; margin-bottom: 10px; }
+        
+        .task-image { margin: 15px 0; text-align: center; background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: var(--radius); }
+        .task-image svg { max-width: 100%; height: auto; max-height: 220px; }
+        
+        /* SVG Hilfsklassen für unüberlappten Text */
+        .svg-text { stroke: none; font-family: sans-serif; font-size: 13px; font-weight: bold; }
+        .svg-bg { fill: var(--bg-color); }
+
+        .btn-action { background-color: var(--surface-hover); color: var(--text-color); border: 1px solid var(--text-muted); padding: 12px 20px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; width: 100%; font-weight: 600; transition: 0.2s;}
+        .btn-action:hover { background-color: var(--primary-hover); border-color: var(--primary-hover); color: white; }
+        .btn-primary { background-color: var(--primary-color); border-color: var(--primary-color); color: var(--bg-color); }
+        .btn-primary:hover { background-color: var(--primary-hover); color: white; }
+
+        .solution-box { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--surface-hover); color: var(--text-muted); }
+        .solution-box.open { display: block; animation: fadeIn 0.3s; }
+        .step-list { list-style-type: decimal; margin-left: 20px; margin-top: 10px; }
+        
+        /* Globaler Lösungsbereich */
+        #global-solutions-box { display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success-color); border-radius: var(--radius); padding: 25px; margin-top: 20px; }
+        #global-solutions-box.open { display: block; animation: fadeIn 0.4s; }
+        #global-solutions-box h3 { color: var(--success-color); margin-bottom: 15px; }
+        .sol-list { list-style: none; }
+        .sol-list li { margin-bottom: 15px; font-size: 1.15rem; border-bottom: 1px solid rgba(16, 185, 129, 0.2); padding-bottom: 10px;}
+        .sol-list li:last-child { border-bottom: none; }
+        .sol-list strong { color: var(--success-color); display: inline-block; min-width: 100px; }
+
+        .math { font-family: "Times New Roman", Times, serif; font-size: 1.25rem; letter-spacing: 1px; color: #fff; padding: 0 4px; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <header>
+        <h1>Mathe Lernnavigator</h1>
+        <p class="subtitle">AVdual C-Niveau - Offene Lernzeit</p>
+    </header>
+
+    <div class="nav-bar">
+        <button id="btnBack" class="btn-back">← Zurück</button>
+        <div id="breadcrumb"><span>Home</span></div>
+    </div>
+
+    <!-- STARTSEITE -->
+    <main id="view-bpe" class="view active">
+        <div class="rules-box">
+            <h3>📋 Spielregeln für die Offene Lernzeit</h3>
+            <ul class="rules-list">
+                <li>Wähle das aktuelle Thema und starte <strong>immer mit Niveau A</strong>. Arbeite selbstständig in Einzelarbeit.</li>
+                <li>Löse alle 5 Aufgaben sorgfältig (z.B. in GoodNotes), exportiere deine Lösungswege als PDF und sende sie an die Lehrkraft zur Kontrolle.</li>
+                <li>Bearbeite in der Wartezeit die Niveaus B und C des Themas. <em>Tipp: Bist du dir bei Niveau A noch sehr unsicher, arbeite in der Wartezeit besser an einem anderen Fach, um dir keine Fehler einzuprägen!</em></li>
+                <li>Gibt die Lehrkraft das "OK", ist das Niveau abgeschlossen und wird im Raster grün markiert.</li>
+                <li>Hast du Niveau A in der Woche nicht bestanden, suche aktiv Kontakt zur Lehrkraft. Das Thema wird in der Folgewoche solange bearbeitet, bis A erreicht ist.</li>
+                <li>Nach Einreichen von B oder C entscheidest du (ggf. mit deiner Lernberatung), ob du ältere Themen vertiefst oder an einem anderen Fach arbeitest.</li>
+            </ul>
+        </div>
+        <div class="grid-menu" id="bpe-grid"></div>
+    </main>
+
+    <!-- LFS AUSWAHL -->
+    <main id="view-lfs" class="view">
+        <div class="task-header"><h2 id="bpe-title">BPE</h2><p>Wähle die zu übende Kompetenz.</p></div>
+        <div class="grid-menu" id="lfs-grid"></div>
+    </main>
+
+    <!-- NIVEAU AUSWAHL -->
+    <main id="view-levels" class="view">
+        <div class="task-header"><h2 id="lfs-title">Kompetenz</h2><p>Wähle dein Differenzierungsniveau.</p></div>
+        <div class="grid-menu" id="levels-grid"></div>
+    </main>
+
+    <!-- AUFGABEN -->
+    <main id="view-tasks" class="view">
+        <div class="task-header"><h2 id="task-title">Titel</h2><p id="task-desc">Beschreibung</p></div>
+        <div id="example-container"></div>
+        <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--surface-color); padding-bottom: 10px;">Trainingsbereich</h3>
+        <div class="task-list" id="tasks-container"></div>
+        
+        <!-- NEU: Zentraler Lösungsbereich -->
+        <button id="btn-show-all-solutions" class="btn-action btn-primary" onclick="toggleAllSolutions()">Alle Lösungen anzeigen</button>
+        <div id="global-solutions-box">
+            <h3>Ergebnisse zur Kontrolle</h3>
+            <ul id="global-solutions-list" class="sol-list"></ul>
+        </div>
+    </main>
+</div>
+
+<script>
+    /* ================= DATENBANK ================= */
+    const db = {
+        bpes: [
+            { id: "bpe1", title: "BPE 1: Termumformungen", desc: "Variablen, Rechengesetze, Potenzen & Binome" },
+            { id: "bpe2", title: "BPE 2: Gleichungen", desc: "Lineare & Quadratische Gleichungen, Formeln" },
+            { id: "bpe3", title: "BPE 3: Geometrie", desc: "Pythagoras, Ähnlichkeit, Trigonometrie & Körper" }
+        ],
+        lfs: {
+            "bpe1": [
+                { id: "l1_1", title: "Terme aufstellen & einsetzen", desc: "Werte berechnen und Terme ableiten." },
+                { id: "l1_2", title: "Zusammenfassen von Termen", desc: "Gleichartige Glieder und Klammern." },
+                { id: "l1_3", title: "Multiplikation von Summen", desc: "Klammern ausmultiplizieren." },
+                { id: "l1_4", title: "Binomische Formeln", desc: "Binome auflösen und multiplizieren." },
+                { id: "l1_5", title: "Faktorisieren", desc: "Ausklammern und Binome rückwärts." },
+                { id: "l1_6", title: "Potenzen", desc: "Rechengesetze für Potenzen anwenden." }
+            ],
+            "bpe2": [
+                { id: "l2_1", title: "Mengen und reelle Zahlen", desc: "Zahlenbereiche unterscheiden." },
+                { id: "l2_2", title: "Lineare Gleichungen", desc: "Gleichungen nach x auflösen." },
+                { id: "l2_3", title: "Formeln umstellen", desc: "Variablen in Formeln isolieren." },
+                { id: "l2_4", title: "Bruchgleichungen", desc: "Gleichungen mit Variablen im Nenner." },
+                { id: "l2_5", title: "Reinquadratische Gleichungen", desc: "Gleichungen durch Wurzelziehen lösen." },
+                { id: "l2_6", title: "Gemischtquadratische Gl.", desc: "Gleichungen mit der Lösungsformel lösen." }
+            ],
+            "bpe3": [
+                { id: "l3_1", title: "Satz des Pythagoras & Thales", desc: "Berechnungen am rechtwinkligen Dreieck." },
+                { id: "l3_2", title: "Ähnlichkeit", desc: "Maßstäbe und proportionale Figuren." },
+                { id: "l3_3", title: "Kongruenz & Symmetrien", desc: "Deckungsgleichheit nachweisen." },
+                { id: "l3_4", title: "Strahlensätze", desc: "Verhältnisse an schneidenden Geraden." },
+                { id: "l3_5", title: "Trigonometrie", desc: "Sinus, Kosinus und Tangens." },
+                { id: "l3_6", title: "Körper", desc: "Volumen und Oberfläche berechnen." }
+            ]
+        },
+        levels: [
+            { id: "A", title: "Niveau A: Grundlagen", desc: "Einfache Rechnungen zum Kernthema.", cssClass: "niveau-A" },
+            { id: "B", title: "Niveau B: Vertiefung", desc: "Mehrschrittige Aufgaben und Skizzen.", cssClass: "niveau-B" },
+            { id: "C", title: "Niveau C: Transfer", desc: "Komplexe Zusammenhänge und Kombinationen.", cssClass: "niveau-C" }
+        ],
+        tasks: {
+            /* === BPE 1: TERME === */
+            "l1_1_A": { 
+                desc: "Werte in vorgegebene Terme einsetzen.", 
+                example: { q: "Berechne den Wert des Terms <span class='math'>2x + 5</span> für <span class='math'>x = 3</span>.", steps: ["Setze für x die Zahl 3 ein: <span class='math'>2 · 3 + 5</span>", "Beachte Punkt-vor-Strich: <span class='math'>6 + 5 = 11</span>"] }, 
+                exercises: [
+                    { q: "Berechne den Wert des Terms <span class='math'>3a - 2</span> für <span class='math'>a = 4</span>.", a: "10" },
+                    { q: "Berechne den Wert des Terms <span class='math'>10 - y</span> für <span class='math'>y = -2</span>.", a: "12" },
+                    { q: "Berechne den Wert des Terms <span class='math'>x<sup>2</sup> - 5</span> für <span class='math'>x = 5</span>.", a: "20" },
+                    { q: "Berechne den Wert des Terms <span class='math'>2u + 3v</span> für <span class='math'>u = 2</span> und <span class='math'>v = 3</span>.", a: "13" },
+                    { q: "Berechne den Wert des Terms <span class='math'>0,5z + 4</span> für <span class='math'>z = 8</span>.", a: "8" }
+                ]
+            },
+            "l1_1_B": { 
+                desc: "Terme anhand von Geometrie aufstellen und vereinfachen.", 
+                example: { 
+                    q: "Stelle einen vereinfachten Term für den Umfang des abgebildeten Rechtecks auf.", 
+                    svg: `<svg viewBox="0 0 200 100" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><rect x="30" y="20" width="140" height="60" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><rect x="80" y="5" width="45" height="15" class="svg-bg" stroke="none" /><text x="82" y="18" fill="#38bdf8" class="svg-text">2x + 1</text><rect x="5" y="45" width="20" height="15" class="svg-bg" stroke="none" /><text x="8" y="57" fill="#38bdf8" class="svg-text">x</text></svg>`,
+                    steps: ["Formel ansetzen: Alle 4 Seiten addieren.", "<span class='math'>U = x + (2x + 1) + x + (2x + 1)</span>", "Zusammenfassen: <span class='math'>U = 6x + 2</span>"] 
+                }, 
+                exercises: [
+                    { q: "Stelle den vereinfachten Term für den Umfang des abgebildeten Dreiecks auf.", svg: `<svg viewBox="0 0 150 100" width="100%" height="100" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,80 130,80 75,20" stroke="#10b981"/><rect x="65" y="82" width="35" height="15" class="svg-bg" stroke="none"/><text x="66" y="95" fill="#10b981" class="svg-text">x + 4</text><rect x="15" y="32" width="15" height="15" class="svg-bg" stroke="none"/><text x="18" y="45" fill="#10b981" class="svg-text">x</text><rect x="110" y="32" width="15" height="15" class="svg-bg" stroke="none"/><text x="112" y="45" fill="#10b981" class="svg-text">x</text></svg>`, a: "<span class='math'>3x + 4</span>" },
+                    { q: "Stelle den vereinfachten Term für den Umfang eines Rechtecks auf, dessen Seitenlängen <span class='math'>3a</span> und <span class='math'>a+2</span> betragen.", a: "<span class='math'>8a + 4</span>" },
+                    { q: "Stelle den vereinfachten Term für den Umfang eines Quadrats mit der Kantenlänge <span class='math'>2y - 1</span> auf.", a: "<span class='math'>8y - 4</span>" },
+                    { q: "Berechne den Wert des Terms <span class='math'>3(y - 2) + y</span> für <span class='math'>y = 5</span>.", a: "14" },
+                    { q: "Stelle den vereinfachten Term für den Umfang eines gleichschenkligen Dreiecks auf. Die beiden Schenkel messen <span class='math'>2a</span>, die Basis misst <span class='math'>a - 1</span>.", a: "<span class='math'>5a - 1</span>" }
+                ]
+            },
+            "l1_1_C": { 
+                desc: "Terme für Flächeninhalte zusammengesetzter Figuren aufstellen.", 
+                example: { 
+                    q: "Stelle einen vereinfachten Term für den Flächeninhalt der abgebildeten L-Form auf.", 
+                    svg: `<svg viewBox="0 0 200 150" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><polygon points="30,20 130,20 130,70 80,70 80,130 30,130" fill="rgba(244, 63, 94, 0.1)" stroke="#f43f5e"/><line x1="30" y1="70" x2="80" y2="70" stroke="#f43f5e" stroke-dasharray="3,3"/><rect x="65" y="5" width="25" height="15" class="svg-bg" stroke="none"/><text x="68" y="17" fill="#f43f5e" class="svg-text">2x</text><rect x="5" y="65" width="25" height="15" class="svg-bg" stroke="none"/><text x="8" y="77" fill="#f43f5e" class="svg-text">2x</text><rect x="45" y="132" width="20" height="15" class="svg-bg" stroke="none"/><text x="50" y="145" fill="#f43f5e" class="svg-text">x</text></svg>`,
+                    steps: ["Zerlege die L-Form an der gestrichelten Linie in zwei Rechtecke.", "Oberes Rechteck: Breite = 2x. Höhe = x (da gesamte linke Seite 2x misst und unterer Teil x misst). Fläche = <span class='math'>2x · x = 2x<sup>2</sup></span>", "Unteres Rechteck: Breite = x, Höhe = x. Fläche = <span class='math'>x<sup>2</sup></span>", "Addiere die Teilflächen: <span class='math'>2x<sup>2</sup> + x<sup>2</sup> = 3x<sup>2</sup></span>"] 
+                }, 
+                exercises: [
+                    { q: "Stelle den vereinfachten Term für den Flächeninhalt des abgebildeten Rechtecks auf.", svg: `<svg viewBox="0 0 150 100" width="100%" height="100" stroke="currentColor" fill="none" stroke-width="2"><rect x="20" y="20" width="110" height="60" stroke="#38bdf8"/><rect x="55" y="5" width="40" height="15" class="svg-bg" stroke="none"/><text x="58" y="17" fill="#38bdf8" class="svg-text">x + 5</text><rect x="5" y="40" width="15" height="15" class="svg-bg" stroke="none"/><text x="8" y="52" fill="#38bdf8" class="svg-text">x</text></svg>`, a: "<span class='math'>x<sup>2</sup> + 5x</span>" },
+                    { q: "Stelle den vereinfachten Term für den Flächeninhalt eines Rechtecks mit den Seitenlängen <span class='math'>2x</span> und <span class='math'>x - 1</span> auf.", a: "<span class='math'>2x<sup>2</sup> - 2x</span>" },
+                    { q: "Stelle den vereinfachten Term für den Flächeninhalt eines Quadrats mit der Seitenlänge <span class='math'>3a</span> auf.", a: "<span class='math'>9a<sup>2</sup></span>" },
+                    { q: "Berechne den Wert des Terms <span class='math'>(x - 2)(x + 2)</span> für <span class='math'>x = -4</span>.", a: "12" },
+                    { q: "Stelle einen vereinfachten Term für den Flächeninhalt eines großen Rechtecks (Breite <span class='math'>4x</span>, Höhe <span class='math'>3x</span>) auf, aus dem ein kleines Rechteck (Breite <span class='math'>x</span>, Höhe <span class='math'>x</span>) herausgeschnitten wurde.", a: "<span class='math'>11x<sup>2</sup></span>" }
+                ]
+            },
+            "l1_2_A": { desc: "Zusammenfassen von Termen (Gleichartige Glieder).", example: { q: "Fasse den Term zusammen: <span class='math'>4x + 3y - x</span>", steps: ["Ordne gleiche Variablen einander zu: <span class='math'>4x - x + 3y</span>", "Berechne die Koeffizienten: <span class='math'>3x + 3y</span>"] }, exercises: [ { q: "Fasse zusammen: <span class='math'>7a - 2a + 5</span>", a: "<span class='math'>5a + 5</span>" }, { q: "Fasse zusammen: <span class='math'>10z + z - 4z</span>", a: "<span class='math'>7z</span>" }, { q: "Fasse zusammen: <span class='math'>2x + 2 + 3x - 1</span>", a: "<span class='math'>5x + 1</span>" }, { q: "Fasse zusammen: <span class='math'>y - y + y</span>", a: "<span class='math'>y</span>" }, { q: "Fasse zusammen: <span class='math'>4b + 3b - 7b + 2</span>", a: "2" } ] },
+            "l1_2_B": { desc: "Zusammenfassen von Termen (Mit Klammern).", example: { q: "Vereinfache den Term: <span class='math'>5x - (2x - 3)</span>", steps: ["Löse die Minusklammer auf (Vorzeichen umdrehen): <span class='math'>5x - 2x + 3</span>", "Fasse gleichartige Glieder zusammen: <span class='math'>3x + 3</span>"] }, exercises: [ { q: "Vereinfache: <span class='math'>4x<sup>2</sup> + 2x - x<sup>2</sup></span>", a: "<span class='math'>3x<sup>2</sup> + 2x</span>" }, { q: "Vereinfache: <span class='math'>10a - (3a + 2)</span>", a: "<span class='math'>7a - 2</span>" }, { q: "Vereinfache: <span class='math'>x - (x - y)</span>", a: "<span class='math'>y</span>" }, { q: "Vereinfache: <span class='math'>2a<sup>2</sup> + a - a<sup>2</sup> + 3a</span>", a: "<span class='math'>a<sup>2</sup> + 4a</span>" }, { q: "Vereinfache: <span class='math'>-(x - 5) + 2x</span>", a: "<span class='math'>x + 5</span>" } ] },
+            "l1_2_C": { desc: "Zusammenfassen komplexer Terme.", example: { q: "Vereinfache den Term: <span class='math'>0,5x - 2(x - 1)</span>", steps: ["Löse die Klammer durch Ausmultiplizieren auf: <span class='math'>0,5x - 2x + 2</span>", "Fasse zusammen: <span class='math'>-1,5x + 2</span>"] }, exercises: [ { q: "Vereinfache: <span class='math'>2a(3 - a) + 2a<sup>2</sup></span>", a: "<span class='math'>6a</span>" }, { q: "Vereinfache: <span class='math'>0,75x - 0,25x + y</span>", a: "<span class='math'>0,5x + y</span>" }, { q: "Vereinfache: <span class='math'>-[-(x + 1)]</span>", a: "<span class='math'>x + 1</span>" }, { q: "Vereinfache: <span class='math'>x(x + 2) - x<sup>2</sup></span>", a: "<span class='math'>2x</span>" }, { q: "Vereinfache: <span class='math'>(a - b) - (b - a)</span>", a: "<span class='math'>2a - 2b</span>" } ] },
+            
+            "l1_3_A": { desc: "Multiplikation von Summen (Einfach).", example: { q: "Multipliziere den Term aus: <span class='math'>3(x + 4)</span>", steps: ["Multipliziere den Faktor mit jedem Glied in der Klammer.", "<span class='math'>3·x + 3·4 = 3x + 12</span>"] }, exercises: [ { q: "Multipliziere aus: <span class='math'>5(2a - 3)</span>", a: "<span class='math'>10a - 15</span>" }, { q: "Multipliziere aus: <span class='math'>-2(x + 5)</span>", a: "<span class='math'>-2x - 10</span>" }, { q: "Multipliziere aus: <span class='math'>x(x - 1)</span>", a: "<span class='math'>x<sup>2</sup> - x</span>" }, { q: "Multipliziere aus: <span class='math'>4(y + 0,5)</span>", a: "<span class='math'>4y + 2</span>" }, { q: "Multipliziere aus: <span class='math'>-a(a - b)</span>", a: "<span class='math'>-a<sup>2</sup> + ab</span>" } ] },
+            "l1_3_B": { desc: "Multiplikation von Summen (Zwei Klammern).", example: { q: "Multipliziere den Term aus: <span class='math'>(x + 2)(x + 3)</span>", steps: ["Multipliziere jedes Element der ersten Klammer mit jedem der zweiten.", "<span class='math'>x·x + x·3 + 2·x + 2·3</span>", "Fasse zusammen: <span class='math'>x<sup>2</sup> + 5x + 6</span>"] }, exercises: [ { q: "Multipliziere aus: <span class='math'>(a - 4)(a + 5)</span>", a: "<span class='math'>a<sup>2</sup> + a - 20</span>" }, { q: "Multipliziere aus: <span class='math'>(2x + 1)(x - 3)</span>", a: "<span class='math'>2x<sup>2</sup> - 5x - 3</span>" }, { q: "Multipliziere aus: <span class='math'>(x - 2)(x - 2)</span>", a: "<span class='math'>x<sup>2</sup> - 4x + 4</span>" }, { q: "Multipliziere aus: <span class='math'>(y + 1)(y - 1)</span>", a: "<span class='math'>y<sup>2</sup> - 1</span>" }, { q: "Multipliziere aus: <span class='math'>(a - b)(c + d)</span>", a: "<span class='math'>ac + ad - bc - bd</span>" } ] },
+            "l1_3_C": { desc: "Multiplikation von Summen (Komplex).", example: { q: "Vereinfache den Term: <span class='math'>-(x + 1)(x - 2)</span>", steps: ["Multipliziere zuerst die Klammern aus und behalte das Minus davor: <span class='math'>-(x<sup>2</sup> - 2x + x - 2)</span>", "Fasse die große Klammer zusammen: <span class='math'>-(x<sup>2</sup> - x - 2)</span>", "Löse die Minusklammer auf: <span class='math'>-x<sup>2</sup> + x + 2</span>"] }, exercises: [ { q: "Vereinfache: <span class='math'>2(x - 3)(x + 3)</span>", a: "<span class='math'>2x<sup>2</sup> - 18</span>" }, { q: "Vereinfache: <span class='math'>(x + y)(x - y + 1)</span>", a: "<span class='math'>x<sup>2</sup> - y<sup>2</sup> + x + y</span>" }, { q: "Vereinfache: <span class='math'>-x(x - 1)(x + 1)</span>", a: "<span class='math'>-x<sup>3</sup> + x</span>" }, { q: "Vereinfache: <span class='math'>(2a - 1)(2a - 1) + 2a</span>", a: "<span class='math'>4a<sup>2</sup> - 2a + 1</span>" }, { q: "Vereinfache: <span class='math'>3x - (x - 2)(x + 1)</span>", a: "<span class='math'>-x<sup>2</sup> + 4x + 2</span>" } ] },
+            
+            "l1_4_A": { desc: "Binomische Formeln (1. und 2. Formel).", example: { q: "Löse das Binom auf: <span class='math'>(x + 3)<sup>2</sup></span>", steps: ["Wende die Struktur an: Quadrat des ersten Glieds, doppeltes Produkt der Glieder, Quadrat des zweiten Glieds.", "<span class='math'>x<sup>2</sup> + 2·x·3 + 3<sup>2</sup> = x<sup>2</sup> + 6x + 9</span>"] }, exercises: [ { q: "Löse auf: <span class='math'>(a + 5)<sup>2</sup></span>", a: "<span class='math'>a<sup>2</sup> + 10a + 25</span>" }, { q: "Löse auf: <span class='math'>(y - 4)<sup>2</sup></span>", a: "<span class='math'>y<sup>2</sup> - 8y + 16</span>" }, { q: "Löse auf: <span class='math'>(x - 1)<sup>2</sup></span>", a: "<span class='math'>x<sup>2</sup> - 2x + 1</span>" }, { q: "Löse auf: <span class='math'>(z + 2)<sup>2</sup></span>", a: "<span class='math'>z<sup>2</sup> + 4z + 4</span>" }, { q: "Löse auf: <span class='math'>(b - 6)<sup>2</sup></span>", a: "<span class='math'>b<sup>2</sup> - 12b + 36</span>" } ] },
+            "l1_4_B": { desc: "Binomische Formeln (3. Formel und Vorfaktoren).", example: { q: "Löse das Binom auf: <span class='math'>(2x - 3)(2x + 3)</span>", steps: ["Wende die Struktur der 3. Formel an.", "<span class='math'>(2x)<sup>2</sup> - 3<sup>2</sup> = 4x<sup>2</sup> - 9</span>"] }, exercises: [ { q: "Löse auf: <span class='math'>(x - 7)(x + 7)</span>", a: "<span class='math'>x<sup>2</sup> - 49</span>" }, { q: "Löse auf: <span class='math'>(3a + 1)<sup>2</sup></span>", a: "<span class='math'>9a<sup>2</sup> + 6a + 1</span>" }, { q: "Löse auf: <span class='math'>(2x - 5)<sup>2</sup></span>", a: "<span class='math'>4x<sup>2</sup> - 20x + 25</span>" }, { q: "Löse auf: <span class='math'>(10 - a)(10 + a)</span>", a: "<span class='math'>100 - a<sup>2</sup></span>" }, { q: "Löse auf: <span class='math'>(4y + 2x)<sup>2</sup></span>", a: "<span class='math'>16y<sup>2</sup> + 16xy + 4x<sup>2</sup></span>" } ] },
+            "l1_4_C": { desc: "Binomische Formeln (Mit zusätzlichem Faktor).", example: { q: "Vereinfache den Term: <span class='math'>3(x + 2)<sup>2</sup></span>", steps: ["Löse zuerst das Binom auf und behalte den Faktor vor der Klammer.", "<span class='math'>3(x<sup>2</sup> + 4x + 4)</span>", "Multipliziere die Klammer aus: <span class='math'>3x<sup>2</sup> + 12x + 12</span>"] }, exercises: [ { q: "Vereinfache: <span class='math'>2(a - 5)<sup>2</sup></span>", a: "<span class='math'>2a<sup>2</sup> - 20a + 50</span>" }, { q: "Vereinfache: <span class='math'>-x(x - 3)<sup>2</sup></span>", a: "<span class='math'>-x<sup>3</sup> + 6x<sup>2</sup> - 9x</span>" }, { q: "Vereinfache: <span class='math'>5(2x + 1)(2x - 1)</span>", a: "<span class='math'>20x<sup>2</sup> - 5</span>" }, { q: "Vereinfache: <span class='math'>0,5(4y - 2)<sup>2</sup></span>", a: "<span class='math'>8y<sup>2</sup> - 8y + 2</span>" }, { q: "Vereinfache: <span class='math'>-(x + 4)<sup>2</sup></span>", a: "<span class='math'>-x<sup>2</sup> - 8x - 16</span>" } ] },
+
+            "l1_5_A": { desc: "Faktorisieren durch Ausklammern.", example: { q: "Faktorisiere den Term durch Ausklammern: <span class='math'>4x + 12</span>", steps: ["Bestimme den größten gemeinsamen Teiler: 4.", "Klammere die 4 aus: <span class='math'>4(x + 3)</span>"] }, exercises: [ { q: "Faktorisiere: <span class='math'>5a - 15</span>", a: "<span class='math'>5(a - 3)</span>" }, { q: "Faktorisiere: <span class='math'>x<sup>2</sup> + 3x</span>", a: "<span class='math'>x(x + 3)</span>" }, { q: "Faktorisiere: <span class='math'>2y + 8</span>", a: "<span class='math'>2(y + 4)</span>" }, { q: "Faktorisiere: <span class='math'>10x - 5</span>", a: "<span class='math'>5(2x - 1)</span>" }, { q: "Faktorisiere: <span class='math'>6z + 9</span>", a: "<span class='math'>3(2z + 3)</span>" } ] },
+            "l1_5_B": { desc: "Variablen ausklammern und Binome rückwärts.", example: { q: "Faktorisiere den Term vollständig durch Ausklammern: <span class='math'>6x<sup>2</sup> - 9x</span>", steps: ["Der größte gemeinsame Zahlen-Teiler ist 3.", "Beide enthalten die Variable x.", "Klammere 3x aus: <span class='math'>3x(2x - 3)</span>"] }, exercises: [ { q: "Faktorisiere durch Ausklammern: <span class='math'>8a<sup>2</sup> + 4a</span>", a: "<span class='math'>4a(2a + 1)</span>" }, { q: "Schreibe den Term als Binom (rückwärts): <span class='math'>a<sup>2</sup> - 14a + 49</span>", a: "<span class='math'>(a - 7)<sup>2</sup></span>" }, { q: "Faktorisiere durch Ausklammern: <span class='math'>15xy - 5x</span>", a: "<span class='math'>5x(3y - 1)</span>" }, { q: "Schreibe den Term als Binom (rückwärts): <span class='math'>x<sup>2</sup> - 100</span>", a: "<span class='math'>(x - 10)(x + 10)</span>" }, { q: "Schreibe den Term als Binom (rückwärts): <span class='math'>4y<sup>2</sup> + 12y + 9</span>", a: "<span class='math'>(2y + 3)<sup>2</sup></span>" } ] },
+            "l1_5_C": { desc: "Kombiniertes Faktorisieren.", example: { q: "Faktorisiere den Term vollständig: <span class='math'>3x<sup>2</sup> - 12x + 12</span>", steps: ["Gemeinsamen Faktor ausklammern: <span class='math'>3(x<sup>2</sup> - 4x + 4)</span>", "Die Klammer als binomische Formel schreiben: <span class='math'>3(x - 2)<sup>2</sup></span>"] }, exercises: [ { q: "Faktorisiere vollständig: <span class='math'>2x<sup>2</sup> - 18</span>", a: "<span class='math'>2(x - 3)(x + 3)</span>" }, { q: "Faktorisiere vollständig: <span class='math'>5a<sup>2</sup> + 10a + 5</span>", a: "<span class='math'>5(a + 1)<sup>2</sup></span>" }, { q: "Faktorisiere vollständig: <span class='math'>x<sup>3</sup> - x</span>", a: "<span class='math'>x(x - 1)(x + 1)</span>" }, { q: "Faktorisiere vollständig: <span class='math'>-x<sup>2</sup> + 2x - 1</span>", a: "<span class='math'>-(x - 1)<sup>2</sup></span>" }, { q: "Faktorisiere vollständig: <span class='math'>4y<sup>3</sup> - 16y</span>", a: "<span class='math'>4y(y - 2)(y + 2)</span>" } ] },
+            
+            "l1_6_A": { desc: "Potenzgesetze (Gleiche Basis).", example: { q: "Fasse als eine Potenz zusammen: <span class='math'>x<sup>3</sup> · x<sup>4</sup></span>", steps: ["Bei Multiplikation mit gleicher Basis werden die Hochzahlen addiert.", "<span class='math'>x<sup>3+4</sup> = x<sup>7</sup></span>"] }, exercises: [ { q: "Vereinfache: <span class='math'>a<sup>2</sup> · a<sup>5</sup></span>", a: "<span class='math'>a<sup>7</sup></span>" }, { q: "Vereinfache: <span class='math'>y<sup>6</sup> : y<sup>2</sup></span>", a: "<span class='math'>y<sup>4</sup></span>" }, { q: "Vereinfache: <span class='math'>x · x<sup>2</sup></span>", a: "<span class='math'>x<sup>3</sup></span>" }, { q: "Vereinfache: <span class='math'>10<sup>3</sup> · 10<sup>2</sup></span>", a: "<span class='math'>10<sup>5</sup></span>" }, { q: "Vereinfache: <span class='math'>z<sup>5</sup> : z</span>", a: "<span class='math'>z<sup>4</sup></span>" } ] },
+            "l1_6_B": { desc: "Potenzgesetze (Potenzieren).", example: { q: "Löse die Klammer auf: <span class='math'>(x<sup>2</sup>)<sup>3</sup></span>", steps: ["Beim Potenzieren einer Potenz werden die Hochzahlen multipliziert.", "<span class='math'>x<sup>2·3</sup> = x<sup>6</sup></span>"] }, exercises: [ { q: "Vereinfache: <span class='math'>(2a<sup>3</sup>)<sup>2</sup></span>", a: "<span class='math'>4a<sup>6</sup></span>" }, { q: "Vereinfache: <span class='math'>(-x)<sup>2</sup></span>", a: "<span class='math'>x<sup>2</sup></span>" }, { q: "Bestimme den Wert: <span class='math'>x<sup>0</sup></span>", a: "1" }, { q: "Vereinfache: <span class='math'>(x·y)<sup>3</sup></span>", a: "<span class='math'>x<sup>3</sup>y<sup>3</sup></span>" }, { q: "Vereinfache: <span class='math'>(m<sup>4</sup>)<sup>5</sup></span>", a: "<span class='math'>m<sup>20</sup></span>" } ] },
+            "l1_6_C": { desc: "Zehnerpotenzen und negative Exponenten.", example: { q: "Schreibe als normale Zahl: <span class='math'>4,5 · 10<sup>3</sup></span>", steps: ["Der Exponent 3 verschiebt das Komma um 3 Stellen nach rechts.", "4500"] }, exercises: [ { q: "Schreibe die Zahl 0,005 als Zehnerpotenz.", a: "<span class='math'>5 · 10<sup>-3</sup></span>" }, { q: "Schreibe <span class='math'>x<sup>-2</sup></span> als Bruch.", a: "<span class='math'>1 / x<sup>2</sup></span>" }, { q: "Schreibe <span class='math'>(2x)<sup>-1</sup></span> ohne negativen Exponenten.", a: "<span class='math'>1 / (2x)</span>" }, { q: "Schreibe die Zahl 3000 als Zehnerpotenz.", a: "<span class='math'>3 · 10<sup>3</sup></span>" }, { q: "Berechne: <span class='math'>10<sup>-2</sup> · 10<sup>4</sup></span>", a: "<span class='math'>10<sup>2</sup> = 100</span>" } ] },
+
+            /* === BPE 2: GLEICHUNGEN === */
+            "l2_1_A": { desc: "Mengen zuordnen (N, Z, Q).", example: { q: "Bestimme die engste Zahlenmenge, zu der -3 gehört.", steps: ["Es ist kein Bruch, aber eine negative Zahl. Die Menge ist Z (Ganze Zahlen)."] }, exercises: [ { q: "Bestimme, ob 1/2 zur Menge Z gehört.", a: "Nein, zu Q." }, { q: "Bestimme, ob -5 zur Menge Q gehört.", a: "Ja." }, { q: "Bestimme, ob 0 in der Menge der natürlichen Zahlen enthalten ist.", a: "Nein (oft nur als N0 definiert)." }, { q: "Bestimme, ob 5,5 zur Menge Z gehört.", a: "Nein, zu Q." }, { q: "Nenne die Menge, welche alle positiven ganzen Zahlen beinhaltet.", a: "N (Natürliche Zahlen)." } ] },
+            "l2_1_B": { desc: "Irrationale Zahlen.", example: { q: "Begründe, ob die Zahl √2 rational oder irrational ist.", steps: ["Die Wurzel aus 2 lässt sich nicht als Bruch schreiben und ist unendlich nicht-periodisch. Sie ist irrational."] }, exercises: [ { q: "Bestimme, ob √9 eine irrationale Zahl ist.", a: "Nein (√9 = 3)." }, { q: "Bestimme, ob 1/3 irrational ist.", a: "Nein (Bruch)." }, { q: "Bestimme, ob Pi zur Menge Q gehört.", a: "Nein (irrational)." }, { q: "Bestimme, ob -√4 eine rationale Zahl ist.", a: "Ja (-2)." }, { q: "Bestimme, ob 0,123123123... rational ist.", a: "Ja (periodisch)." } ] },
+            "l2_1_C": { desc: "Die reellen Zahlen (R).", example: { q: "Nenne die zwei großen Teilmengen, aus denen sich die reellen Zahlen zusammensetzen.", steps: ["Aus allen rationalen (Q) und allen irrationalen Zahlen."] }, exercises: [ { q: "Bestimme, ob die Wurzel aus -1 eine reelle Zahl ist.", a: "Nein." }, { q: "Bestimme, ob Pi zur Menge R gehört.", a: "Ja." }, { q: "Nenne die umfassendere Menge: Q oder R.", a: "R." }, { q: "Bestimme, ob 0,333... zur Menge R gehört.", a: "Ja." }, { q: "Gibt es eine Zahl in Z, die nicht in R liegt?", a: "Nein." } ] },
+            
+            "l2_2_A": { desc: "Einfache lineare Gleichungen lösen.", example: { q: "Löse die Gleichung nach x auf: <span class='math'>x + 7 = 12</span>", steps: ["Subtrahiere 7 auf beiden Seiten.", "<span class='math'>x = 5</span>"] }, exercises: [ { q: "Löse nach x auf: <span class='math'>4x = 24</span>", a: "<span class='math'>x = 6</span>" }, { q: "Löse nach x auf: <span class='math'>x - 3 = 10</span>", a: "<span class='math'>x = 13</span>" }, { q: "Löse nach x auf: <span class='math'>2x + 1 = 9</span>", a: "<span class='math'>x = 4</span>" }, { q: "Löse nach x auf: <span class='math'>-x = 5</span>", a: "<span class='math'>x = -5</span>" }, { q: "Löse nach x auf: <span class='math'>x / 2 = 4</span>", a: "<span class='math'>x = 8</span>" } ] },
+            "l2_2_B": { desc: "Lineare Gleichungen mit Variablen auf beiden Seiten.", example: { q: "Löse die Gleichung nach x auf: <span class='math'>5x - 2 = 2x + 10</span>", steps: ["Subtrahiere 2x: <span class='math'>3x - 2 = 10</span>", "Addiere 2: <span class='math'>3x = 12</span>", "Dividiere durch 3: <span class='math'>x = 4</span>"] }, exercises: [ { q: "Löse nach x auf: <span class='math'>2(x + 3) = 14</span>", a: "<span class='math'>x = 4</span>" }, { q: "Löse nach x auf: <span class='math'>6x = 2x + 20</span>", a: "<span class='math'>x = 5</span>" }, { q: "Löse nach x auf: <span class='math'>4(x - 1) = 2x + 6</span>", a: "<span class='math'>x = 5</span>" }, { q: "Löse nach x auf: <span class='math'>10 - 2x = x - 5</span>", a: "<span class='math'>x = 5</span>" }, { q: "Löse nach x auf: <span class='math'>3x + 4 = x - 2</span>", a: "<span class='math'>x = -3</span>" } ] },
+            "l2_2_C": { desc: "Komplexe lineare Gleichungen und Sonderfälle.", example: { q: "Löse die Gleichung: <span class='math'>2x = 2x + 5</span>", steps: ["Subtrahiere 2x auf beiden Seiten: <span class='math'>0 = 5</span>", "Diese Aussage ist falsch. Die Gleichung besitzt keine Lösung."] }, exercises: [ { q: "Löse nach x auf: <span class='math'>3(x - 1) = 3x - 3</span>", a: "Unendlich viele Lösungen." }, { q: "Löse nach x auf: <span class='math'>(x + 2)(x - 2) = x<sup>2</sup> - 2x</span>", a: "<span class='math'>-4 = -2x ➔ x = 2</span>" }, { q: "Löse nach x auf: <span class='math'>x/2 + x/4 = 3</span>", a: "<span class='math'>x = 4</span>" }, { q: "Löse nach x auf: <span class='math'>-(x - 5) = 2x - 1</span>", a: "<span class='math'>x = 2</span>" }, { q: "Löse nach x auf: <span class='math'>4 - x = -(x - 4)</span>", a: "Unendlich viele Lösungen." } ] },
+            
+            "l2_3_A": { desc: "Einfache Formeln umstellen.", example: { q: "Stelle die Formel <span class='math'>A = a · b</span> nach <span class='math'>b</span> um.", steps: ["Dividiere beide Seiten durch a: <span class='math'>b = A / a</span>"] }, exercises: [ { q: "Stelle um nach I: <span class='math'>U = R · I</span>", a: "<span class='math'>I = U / R</span>" }, { q: "Stelle um nach s: <span class='math'>v = s / t</span>", a: "<span class='math'>s = v · t</span>" }, { q: "Stelle um nach m: <span class='math'>y = m · x</span>", a: "<span class='math'>m = y / x</span>" }, { q: "Stelle um nach x: <span class='math'>K = x + y</span>", a: "<span class='math'>x = K - y</span>" }, { q: "Stelle um nach b: <span class='math'>a = b - c</span>", a: "<span class='math'>b = a + c</span>" } ] },
+            "l2_3_B": { desc: "Formeln mit Brüchen und Summen umstellen.", example: { q: "Stelle die Formel <span class='math'>Z = K · p</span> nach <span class='math'>K</span> um.", steps: ["Dividiere durch p: <span class='math'>K = Z / p</span>"] }, exercises: [ { q: "Stelle um nach a: <span class='math'>U = 2a + 2b</span>", a: "<span class='math'>a = (U - 2b) / 2</span>" }, { q: "Stelle um nach r: <span class='math'>U = 2πr</span>", a: "<span class='math'>r = U / (2π)</span>" }, { q: "Stelle um nach h: <span class='math'>A = g·h/2</span>", a: "<span class='math'>h = 2A / g</span>" }, { q: "Stelle um nach m: <span class='math'>y = m·x + c</span>", a: "<span class='math'>m = (y - c) / x</span>" }, { q: "Stelle um nach c: <span class='math'>V = a·b·c</span>", a: "<span class='math'>c = V / (a·b)</span>" } ] },
+            "l2_3_C": { desc: "Formeln mit Quadraten und Wurzeln umstellen.", example: { q: "Stelle die Formel <span class='math'>a<sup>2</sup> + b<sup>2</sup> = c<sup>2</sup></span> nach <span class='math'>a</span> um.", steps: ["Subtrahiere b²: <span class='math'>a<sup>2</sup> = c<sup>2</sup> - b<sup>2</sup></span>", "Ziehe die Wurzel: <span class='math'>a = √(c<sup>2</sup> - b<sup>2</sup>)</span>"] }, exercises: [ { q: "Stelle um nach r: <span class='math'>A = πr<sup>2</sup></span>", a: "<span class='math'>r = √(A/π)</span>" }, { q: "Stelle um nach v: <span class='math'>E = 0,5mv<sup>2</sup></span>", a: "<span class='math'>v = √(2E/m)</span>" }, { q: "Stelle um nach r: <span class='math'>O = 4πr<sup>2</sup></span>", a: "<span class='math'>r = √(O/(4π))</span>" }, { q: "Stelle um nach G: <span class='math'>V = 1/3 G h</span>", a: "<span class='math'>G = 3V / h</span>" }, { q: "Stelle um nach l: <span class='math'>T = 2π√(l/g)</span>", a: "<span class='math'>l = g · (T/(2π))<sup>2</sup></span>" } ] },
+            
+            "l2_4_A": { 
+                desc: "Einfache Bruchgleichungen (Variable im Nenner).", 
+                example: { q: "Löse die Bruchgleichung nach x auf: <span class='math'>10 / x = 2</span>", steps: ["Multipliziere mit x: <span class='math'>10 = 2x</span>", "Dividiere durch 2: <span class='math'>x = 5</span>"] }, 
+                exercises: [
+                    { q: "Löse nach x auf: <span class='math'>24 / x = 6</span>", a: "<span class='math'>x = 4</span>" },
+                    { q: "Löse nach x auf: <span class='math'>5 / x = 1</span>", a: "<span class='math'>x = 5</span>" },
+                    { q: "Löse nach x auf: <span class='math'>12 / x = -3</span>", a: "<span class='math'>x = -4</span>" },
+                    { q: "Löse nach x auf: <span class='math'>-8 / x = 2</span>", a: "<span class='math'>x = -4</span>" },
+                    { q: "Löse nach x auf: <span class='math'>1 / x = 0,5</span>", a: "<span class='math'>x = 2</span>" }
+                ]
+            },
+            "l2_4_B": { 
+                desc: "Bruchgleichungen mit Kreuzmultiplikation lösen.", 
+                example: { q: "Löse die Bruchgleichung nach x auf: <span class='math'>4 / x = 2 / 3</span>", steps: ["Multipliziere über Kreuz: <span class='math'>4 · 3 = 2 · x</span>", "<span class='math'>12 = 2x ➔ x = 6</span>"] }, 
+                exercises: [
+                    { q: "Löse nach x auf: <span class='math'>6 / x = 3 / 2</span>", a: "<span class='math'>x = 4</span>" },
+                    { q: "Löse nach x auf: <span class='math'>5 / (x - 1) = 5 / 2</span>", a: "<span class='math'>x = 3</span>" },
+                    { q: "Löse nach x auf: <span class='math'>x / 5 = 4 / 10</span>", a: "<span class='math'>x = 2</span>" },
+                    { q: "Löse nach x auf: <span class='math'>2 / x = 3 / (x + 2)</span>", a: "<span class='math'>2x + 4 = 3x ➔ x = 4</span>" },
+                    { q: "Löse nach x auf: <span class='math'>10 / x = 5 / 3</span>", a: "<span class='math'>x = 6</span>" }
+                ]
+            },
+            "l2_4_C": { 
+                desc: "Komplexere Bruchgleichungen linear auflösen.", 
+                example: { q: "Löse die Bruchgleichung nach x auf: <span class='math'>4 / (x - 2) - 2 / (x - 2) = 1</span>", steps: ["Subtrahiere die Zähler (Nenner sind gleich): <span class='math'>2 / (x - 2) = 1</span>", "Multipliziere mit dem Nenner: <span class='math'>2 = x - 2</span>", "Löse auf: <span class='math'>x = 4</span>"] }, 
+                exercises: [
+                    { q: "Löse nach x auf: <span class='math'>5 / (2x - 1) = 3 / (x + 1)</span>", a: "Über Kreuz: <span class='math'>5x + 5 = 6x - 3 ➔ x = 8</span>" },
+                    { q: "Löse nach x auf: <span class='math'>x / (x + 3) = 2 / (x + 3)</span>", a: "Zähler gleichsetzen: <span class='math'>x = 2</span>" },
+                    { q: "Löse nach x auf: <span class='math'>7 / x = 14 / (x + 2)</span>", a: "Über Kreuz: <span class='math'>7x + 14 = 14x ➔ 14 = 7x ➔ x = 2</span>" },
+                    { q: "Löse nach x auf: <span class='math'>1 / x + 1 / x = 1</span>", a: "<span class='math'>2 / x = 1 ➔ x = 2</span>" },
+                    { q: "Löse nach x auf: <span class='math'>2 / (3x - 1) = 4 / (5x + 2)</span>", a: "Über Kreuz: <span class='math'>10x + 4 = 12x - 4 ➔ 8 = 2x ➔ x = 4</span>" }
+                ]
+            },
+
+            "l2_5_A": { desc: "Reinquadratische Gleichungen A.", example: { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> = 25</span>", steps: ["Ziehe die Wurzel: <span class='math'>x = 5</span> oder <span class='math'>x = -5</span>"] }, exercises: [ { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> = 81</span>", a: "9, -9" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> = 100</span>", a: "10, -10" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> = 0</span>", a: "0" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> = 144</span>", a: "12, -12" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> = 1</span>", a: "1, -1" } ] },
+            "l2_5_B": { desc: "Reinquadratische Gleichungen B.", example: { q: "Löse nach x auf: <span class='math'>2x<sup>2</sup> - 18 = 0</span>", steps: ["Isoliere x²: <span class='math'>2x<sup>2</sup> = 18 ➔ x<sup>2</sup> = 9</span>", "Ziehe die Wurzel: <span class='math'>x = 3, -3</span>"] }, exercises: [ { q: "Löse nach x auf: <span class='math'>3x<sup>2</sup> = 27</span>", a: "3, -3" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> + 10 = 35</span>", a: "5, -5" }, { q: "Löse nach x auf: <span class='math'>5x<sup>2</sup> - 20 = 0</span>", a: "2, -2" }, { q: "Löse nach x auf: <span class='math'>-x<sup>2</sup> + 16 = 0</span>", a: "4, -4" }, { q: "Löse nach x auf: <span class='math'>0,5x<sup>2</sup> = 8</span>", a: "4, -4" } ] },
+            "l2_5_C": { desc: "Reinquadratische Gleichungen C.", example: { q: "Löse nach x auf: <span class='math'>(x - 2)<sup>2</sup> = 16</span>", steps: ["Ziehe die Wurzel: <span class='math'>x - 2 = 4</span> oder <span class='math'>x - 2 = -4</span>", "Löse auf: <span class='math'>x = 6, x = -2</span>"] }, exercises: [ { q: "Löse nach x auf: <span class='math'>(x + 1)<sup>2</sup> = 9</span>", a: "2, -4" }, { q: "Löse nach x auf: <span class='math'>2(x - 3)<sup>2</sup> = 50</span>", a: "8, -2" }, { q: "Löse nach x auf: <span class='math'>(x - 5)<sup>2</sup> - 4 = 0</span>", a: "7, 3" }, { q: "Löse nach x auf: <span class='math'>3(x + 2)<sup>2</sup> = 27</span>", a: "1, -5" }, { q: "Löse nach x auf: <span class='math'>(2x - 4)<sup>2</sup> = 0</span>", a: "2" } ] },
+            
+            "l2_6_A": { desc: "Lösungsformel: Parameter bestimmen.", example: { q: "Bestimme die Parameter a, b und c in der Gleichung <span class='math'>2x<sup>2</sup> + 5x - 3 = 0</span>.", steps: ["a ist der Faktor vor x²: a=2", "b ist der Faktor vor x: b=5", "c ist die Zahl ohne x: c=-3"] }, exercises: [ { q: "Bestimme a, b, c in: <span class='math'>-x<sup>2</sup> + 4x + 1 = 0</span>", a: "a=-1, b=4, c=1" }, { q: "Bestimme a, b, c in: <span class='math'>3x<sup>2</sup> - 7 = 0</span>", a: "a=3, b=0, c=-7" }, { q: "Bestimme a, b, c in: <span class='math'>x<sup>2</sup> - x = 0</span>", a: "a=1, b=-1, c=0" }, { q: "Bestimme a, b, c in: <span class='math'>5x + x<sup>2</sup> = 0</span>", a: "a=1, b=5, c=0" }, { q: "Bestimme a, b, c in: <span class='math'>x<sup>2</sup> - 2x + 8 = 0</span>", a: "a=1, b=-2, c=8" } ] },
+            "l2_6_B": { desc: "Gemischtquadratische Gleichungen lösen.", example: { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> - 6x + 8 = 0</span>", steps: ["Wende die abc-Formel an: <span class='math'>x = (-(-6) ± √(36 - 32)) / 2</span>", "<span class='math'>x = (6 ± 2) / 2 ➔ x<sub>1</sub>=4, x<sub>2</sub>=2</span>"] }, exercises: [ { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> + 2x - 3 = 0</span>", a: "1, -3" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> - 4x + 4 = 0</span>", a: "2" }, { q: "Löse nach x auf: <span class='math'>2x<sup>2</sup> - 4x - 6 = 0</span>", a: "3, -1" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> + x - 2 = 0</span>", a: "1, -2" }, { q: "Löse nach x auf: <span class='math'>-x<sup>2</sup> + 4x - 3 = 0</span>", a: "3, 1" } ] },
+            "l2_6_C": { desc: "Umstellen auf Normalform und Lösen.", example: { q: "Löse nach x auf: <span class='math'>x(x - 2) = 8</span>", steps: ["Ausmultiplizieren und Umstellen: <span class='math'>x<sup>2</sup> - 2x - 8 = 0</span>", "Lösen mit Formel: 4, -2"] }, exercises: [ { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> = 5x</span>", a: "0, 5" }, { q: "Löse nach x auf: <span class='math'>2x<sup>2</sup> + 4x = -2</span>", a: "-1" }, { q: "Löse nach x auf: <span class='math'>(x - 1)(x + 2) = 4</span>", a: "2, -3" }, { q: "Löse nach x auf: <span class='math'>x<sup>2</sup> - 1 = 3x - 3</span>", a: "2, 1" }, { q: "Löse nach x auf: <span class='math'>3x<sup>2</sup> = 6x + 9</span>", a: "3, -1" } ] },
+
+            /* === BPE 3: GEOMETRIE === */
+            "l3_1_A": { 
+                desc: "Satz des Pythagoras (Hypotenuse berechnen).", 
+                example: { 
+                    q: "Berechne die fehlende Seite c im abgebildeten Dreieck.", 
+                    svg: `<svg viewBox="0 0 200 120" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 160,100 20,20" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><polyline points="20,90 30,90 30,100" stroke="#38bdf8"/><rect x="80" y="102" width="20" height="15" class="svg-bg" stroke="none"/><text x="82" y="115" fill="#38bdf8" class="svg-text">b = 4</text><rect x="0" y="55" width="20" height="15" class="svg-bg" stroke="none"/><text x="2" y="67" fill="#38bdf8" class="svg-text">a = 3</text><rect x="95" y="45" width="25" height="15" class="svg-bg" stroke="none"/><text x="97" y="57" fill="#f43f5e" class="svg-text">c = ?</text></svg>`,
+                    steps: ["Formel ansetzen: <span class='math'>a<sup>2</sup> + b<sup>2</sup> = c<sup>2</sup></span>", "<span class='math'>3<sup>2</sup> + 4<sup>2</sup> = c<sup>2</sup> ➔ 9 + 16 = 25</span>", "Wurzel ziehen: <span class='math'>c = 5</span>"] 
+                }, 
+                exercises: [
+                    { q: "Berechne die fehlende Seite im abgebildeten Dreieck.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 160,100 20,20" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><polyline points="20,90 30,90 30,100" stroke="#38bdf8"/><rect x="80" y="102" width="15" height="15" class="svg-bg" stroke="none"/><text x="82" y="115" fill="#38bdf8" class="svg-text">8</text><rect x="5" y="55" width="15" height="15" class="svg-bg" stroke="none"/><text x="7" y="67" fill="#38bdf8" class="svg-text">6</text><rect x="95" y="45" width="25" height="15" class="svg-bg" stroke="none"/><text x="97" y="57" fill="#f43f5e" class="svg-text">c = ?</text></svg>`, a: "10" },
+                    { q: "Berechne die Hypotenuse des abgebildeten Dreiecks.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 160,100 20,20" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><polyline points="20,90 30,90 30,100" stroke="#38bdf8"/><rect x="80" y="102" width="20" height="15" class="svg-bg" stroke="none"/><text x="82" y="115" fill="#38bdf8" class="svg-text">12</text><rect x="5" y="55" width="15" height="15" class="svg-bg" stroke="none"/><text x="7" y="67" fill="#38bdf8" class="svg-text">5</text><rect x="95" y="45" width="25" height="15" class="svg-bg" stroke="none"/><text x="97" y="57" fill="#f43f5e" class="svg-text">c = ?</text></svg>`, a: "13" },
+                    { q: "Berechne die Hypotenuse eines rechtwinkligen Dreiecks, dessen Katheten 9 und 12 messen.", a: "15" },
+                    { q: "Berechne die Hypotenuse eines rechtwinkligen Dreiecks, dessen Katheten 8 und 15 messen.", a: "17" },
+                    { q: "Berechne die Hypotenuse eines rechtwinkligen Dreiecks, dessen Katheten 10 und 24 messen.", a: "26" }
+                ]
+            },
+            "l3_1_B": { 
+                desc: "Satz des Pythagoras (Katheten) und Satz des Thales.", 
+                example: { 
+                    q: "Berechne die fehlende Seite b im abgebildeten Dreieck.", 
+                    svg: `<svg viewBox="0 0 200 120" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 160,100 160,20" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><polyline points="150,100 150,90 160,90" stroke="#10b981"/><rect x="80" y="102" width="25" height="15" class="svg-bg" stroke="none"/><text x="82" y="115" fill="#f43f5e" class="svg-text">b = ?</text><rect x="162" y="55" width="25" height="15" class="svg-bg" stroke="none"/><text x="165" y="67" fill="#10b981" class="svg-text">a = 6</text><rect x="70" y="45" width="35" height="15" class="svg-bg" stroke="none"/><text x="72" y="57" fill="#10b981" class="svg-text">c = 10</text></svg>`,
+                    steps: ["Formel umstellen: <span class='math'>b<sup>2</sup> = c<sup>2</sup> - a<sup>2</sup></span>", "<span class='math'>b<sup>2</sup> = 10<sup>2</sup> - 6<sup>2</sup> ➔ 100 - 36 = 64</span>", "Wurzel ziehen: <span class='math'>b = 8</span>"] 
+                }, 
+                exercises: [
+                    { q: "Der Punkt C liegt auf dem Kreisbogen. Weise nach, dass das Dreieck ABC rechtwinklig ist.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><path d="M 20 100 A 70 70 0 0 1 160 100" stroke="#38bdf8"/><polygon points="20,100 160,100 70,50" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><circle cx="90" cy="100" r="2" fill="#38bdf8" stroke="none"/><rect x="5" y="100" width="15" height="15" class="svg-bg" stroke="none"/><text x="8" y="110" fill="#38bdf8" class="svg-text">A</text><rect x="162" y="100" width="15" height="15" class="svg-bg" stroke="none"/><text x="165" y="110" fill="#38bdf8" class="svg-text">B</text><rect x="60" y="30" width="15" height="15" class="svg-bg" stroke="none"/><text x="65" y="40" fill="#38bdf8" class="svg-text">C</text><text x="85" y="115" fill="#38bdf8" class="svg-text">M</text></svg>`, a: "Nach dem Satz des Thales besitzt jedes Dreieck, dessen Punkt C auf dem Halbkreisbogen über der Strecke AB liegt, dort einen rechten Winkel." },
+                    { q: "Berechne die fehlende Kathete im abgebildeten Dreieck.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 160,100 160,20" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><polyline points="150,100 150,90 160,90" stroke="#10b981"/><rect x="80" y="102" width="25" height="15" class="svg-bg" stroke="none"/><text x="82" y="115" fill="#f43f5e" class="svg-text">b = ?</text><rect x="162" y="55" width="15" height="15" class="svg-bg" stroke="none"/><text x="165" y="67" fill="#10b981" class="svg-text">9</text><rect x="70" y="45" width="25" height="15" class="svg-bg" stroke="none"/><text x="72" y="57" fill="#10b981" class="svg-text">15</text></svg>`, a: "12" },
+                    { q: "Eine Hypotenuse misst 13, eine Kathete misst 5. Berechne die zweite Kathete.", a: "12" },
+                    { q: "Weise rechnerisch nach, ob das Dreieck mit den Seiten 7, 24 und 25 rechtwinklig ist.", a: "Ja, denn <span class='math'>7<sup>2</sup> + 24<sup>2</sup> = 49 + 576 = 625 = 25<sup>2</sup></span>." },
+                    { q: "Eine Hypotenuse misst 17, eine Kathete misst 8. Berechne die zweite Kathete.", a: "15" }
+                ]
+            },
+            "l3_1_C": { 
+                desc: "Anwendungen des Pythagoras in Körpern und Flächen.", 
+                example: { 
+                    q: "Berechne die Raumdiagonale d im abgebildeten Quader.", 
+                    svg: `<svg viewBox="0 0 200 150" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><rect x="40" y="40" width="80" height="60" stroke="#94a3b8"/><polygon points="40,40 70,20 150,20 120,40" stroke="#94a3b8"/><polygon points="120,40 150,20 150,80 120,100" stroke="#94a3b8"/><line x1="40" y1="100" x2="150" y2="20" stroke="#f43f5e" stroke-dasharray="4,4"/><rect x="70" y="45" width="25" height="15" class="svg-bg" stroke="none"/><text x="75" y="57" fill="#f43f5e" class="svg-text">d=?</text><text x="75" y="115" fill="#38bdf8" class="svg-text">a=4</text><text x="125" y="110" fill="#38bdf8" class="svg-text">b=3</text><rect x="152" y="45" width="30" height="15" class="svg-bg" stroke="none"/><text x="155" y="55" fill="#38bdf8" class="svg-text">c=12</text></svg>`,
+                    steps: ["Berechne zuerst die Bodendiagonale e: <span class='math'>e<sup>2</sup> = 4<sup>2</sup> + 3<sup>2</sup> = 25</span>", "Setze dies in das Dreieck der Raumdiagonale ein: <span class='math'>d<sup>2</sup> = e<sup>2</sup> + c<sup>2</sup></span>", "<span class='math'>d<sup>2</sup> = 25 + 12<sup>2</sup> = 169</span>", "Wurzel ziehen: <span class='math'>d = 13</span>"] 
+                }, 
+                exercises: [
+                    { q: "Berechne die Höhe h im abgebildeten gleichschenkligen Dreieck.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 180,100 100,20" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><line x1="100" y1="100" x2="100" y2="20" stroke="#f43f5e" stroke-dasharray="4,4"/><rect x="102" y="55" width="25" height="15" class="svg-bg" stroke="none"/><text x="105" y="65" fill="#f43f5e" class="svg-text">h=?</text><rect x="90" y="102" width="20" height="15" class="svg-bg" stroke="none"/><text x="95" y="115" fill="#10b981" class="svg-text">c=6</text><rect x="140" y="45" width="25" height="15" class="svg-bg" stroke="none"/><text x="145" y="55" fill="#10b981" class="svg-text">a=5</text></svg>`, a: "4. (Nutze das halbe Dreieck: <span class='math'>h<sup>2</sup> = 5<sup>2</sup> - 3<sup>2</sup> = 16</span>)." },
+                    { q: "Berechne die Raumdiagonale eines Würfels mit der Kantenlänge a = 5 cm.", a: "<span class='math'>√75 ≈ 8,66 cm</span>" },
+                    { q: "Eine 5 m lange Leiter lehnt an einer Wand. Ihr Fuß steht 3 m von der Wand entfernt. Berechne die Höhe, in der die Leiter die Wand berührt.", a: "4 m" },
+                    { q: "Ein Rechteck besitzt die Diagonale 10 cm und die Breite 6 cm. Berechne die Länge.", a: "8 cm" },
+                    { q: "Eine Leiter ist 13 m lang und erreicht eine Höhe von 12 m. Berechne den Abstand des Fußendes zur Wand.", a: "5 m" }
+                ]
+            },
+
+            "l3_2_A": { 
+                desc: "Ähnlichkeit erkennen & Maßstab bestimmen.", 
+                example: { 
+                    q: "Bestimme den Maßstab (von Original zu Bild) der beiden abgebildeten Rechtecke.", 
+                    svg: `<svg viewBox="0 0 300 100" width="100%" height="100" stroke="currentColor" fill="none" stroke-width="2"><rect x="20" y="40" width="40" height="20" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><text x="35" y="30" fill="#38bdf8" class="svg-text">4</text><text x="5" y="55" fill="#38bdf8" class="svg-text">2</text><line x1="80" y1="50" x2="110" y2="50" stroke="#94a3b8"/><polygon points="110,50 105,45 105,55" fill="#94a3b8" stroke="none"/><rect x="130" y="10" width="120" height="60" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><text x="180" y="85" fill="#10b981" class="svg-text">12</text><text x="255" y="45" fill="#10b981" class="svg-text">6</text></svg>`,
+                    steps: ["Dividiere eine Bildlänge durch die entsprechende Originallänge.", "<span class='math'>12 : 4 = 3</span>"] 
+                }, 
+                exercises: [
+                    { q: "Begründe, welche der beiden Figuren (Figur 1 oder 2) zum Original ähnlich ist.", svg: `<svg viewBox="0 0 350 80" width="100%" height="80" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,60 60,60 20,20" fill="rgba(255,255,255,0.05)"/><text x="20" y="75" fill="currentColor" class="svg-text">Original</text><polygon points="110,60 190,60 110,20" stroke="#f43f5e" fill="rgba(244, 63, 94, 0.05)"/><text x="130" y="75" fill="#f43f5e" class="svg-text">Fig 1</text><polygon points="230,60 290,60 230,0" stroke="#10b981" fill="rgba(16, 185, 129, 0.05)"/><text x="245" y="75" fill="#10b981" class="svg-text">Fig 2</text></svg>`, a: "Figur 2. Ihre Form und Winkel stimmen mit dem Original überein. Figur 1 wurde verzerrt." },
+                    { q: "Die Seite eines Originals misst 5 cm, im Bild misst sie 15 cm. Bestimme den Maßstab (Bild zu Original).", a: "3" },
+                    { q: "Die Seite eines Originals misst 20 cm, im Bild misst sie 10 cm. Bestimme den Maßstab.", a: "0,5" },
+                    { q: "Die Seite eines Originals misst 8 cm, im Bild misst sie 32 cm. Bestimme den Maßstab.", a: "4" },
+                    { q: "Die Seite eines Originals misst 12 m, im Bild misst sie 3 m. Bestimme den Maßstab.", a: "0,25" }
+                ]
+            },
+            "l3_2_B": { 
+                desc: "Fehlende Seiten ähnlicher Figuren berechnen.", 
+                example: { 
+                    q: "Die beiden abgebildeten Dreiecke sind ähnlich zueinander. Berechne die Seitenlänge x.", 
+                    svg: `<svg viewBox="0 0 300 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 80,100 20,20" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><text x="45" y="115" fill="#38bdf8" class="svg-text">3</text><text x="5" y="65" fill="#38bdf8" class="svg-text">4</text><polygon points="150,100 270,100 150,0" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><text x="205" y="115" fill="#10b981" class="svg-text">9</text><text x="120" y="55" fill="#f43f5e" class="svg-text">x = ?</text></svg>`,
+                    steps: ["Ermittle den Maßstab aus den Grundseiten: <span class='math'>9 : 3 = 3</span>", "Wende den Maßstab auf die senkrechte Seite an: <span class='math'>x = 4 · 3 = 12</span>"] 
+                }, 
+                exercises: [
+                    { q: "Die abgebildeten Vierecke sind ähnlich zueinander. Berechne die Länge y.", svg: `<svg viewBox="0 0 350 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 60,100 60,60 20,80" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><text x="35" y="115" fill="#38bdf8" class="svg-text">4</text><text x="65" y="85" fill="#38bdf8" class="svg-text">4</text><polygon points="120,100 200,100 200,20 120,60" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><text x="155" y="115" fill="#10b981" class="svg-text">10</text><text x="210" y="65" fill="#f43f5e" class="svg-text">y = ?</text></svg>`, a: "10" },
+                    { q: "Ein Originaldreieck hat die Seiten 5, 12 und 13. Ein ähnliches Bilddreieck hat als kürzeste Seite 15. Berechne die längste Seite des Bilddreiecks.", a: "39" },
+                    { q: "Ein Rechteck hat die Maße 6 x 4. Das ähnliche Bildrechteck ist 18 breit. Berechne seine Höhe.", a: "12" },
+                    { q: "Ein Original misst 7 cm. Der Maßstab beträgt 2,5. Berechne die Bildseite.", a: "17,5 cm" },
+                    { q: "Ein Original misst 40 m. Der Maßstab beträgt 0,2. Berechne die Bildseite.", a: "8 m" }
+                ]
+            },
+            "l3_2_C": { 
+                desc: "Ähnlichkeit: Maßstab anwenden & Rückwärtsrechnen.", 
+                example: { 
+                    q: "Berechne die Basis x des liegenden Dreiecks. Es ist zum stehenden Dreieck ähnlich.", 
+                    svg: `<svg viewBox="0 0 300 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="50,100 80,100 50,60" fill="rgba(56, 189, 248, 0.1)" stroke="#38bdf8"/><text x="60" y="115" fill="#38bdf8" class="svg-text">3</text><text x="35" y="85" fill="#38bdf8" class="svg-text">4</text><polygon points="150,100 150,30 270,100" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><text x="135" y="70" fill="#10b981" class="svg-text">9</text><text x="200" y="115" fill="#f43f5e" class="svg-text">x = ?</text></svg>`,
+                    steps: ["Achtung, die Dreiecke sind verdreht.", "Die ehemalige Basis (3) entspricht der neuen Höhe (9). Der Maßstab beträgt 9 : 3 = 3.", "Die gesuchte neue Basis (x) entspricht der alten Höhe (4).", "x = 4 · 3 = 12"] 
+                }, 
+                exercises: [
+                    { q: "Du zeichnest ein Objekt im Maßstab 2,5. Das Original hat eine Kante von 4 cm. Welche Länge zeichnest du?", a: "10 cm" },
+                    { q: "Ein gezeichnetes Bild ist 15 cm breit. Das Original ist 3 cm breit. Eine weitere Strecke misst im Bild 25 cm. Berechne die Länge dieser Strecke im Original.", a: "5 cm. (Der Maßstab ist 5. Dividiere: 25 / 5 = 5)." },
+                    { q: "Ein Rechteck hat die Maße 4 cm und 6 cm. Du sollst es im Maßstab 1:4 zeichnen. Welche Längen zeichnest du?", a: "1 cm und 1,5 cm" },
+                    { q: "Ein Original misst 2,5 m. Das Bild misst 10 m. Ein zweites Original misst 4 m. Berechne dessen Bild.", a: "16 m. (Der Maßstab ist 4)." },
+                    { q: "Ein Rechteck hat eine Fläche von 50 cm². Es wird mit dem Maßstab 2 vergrößert. Berechne die neue Fläche.", a: "200 cm². (Die Fläche skaliert mit dem Quadrat des Maßstabs, hier also 2² = 4)." }
+                ]
+            },
+
+            "l3_3_A": { desc: "Symmetrien erkennen.", example: { q: "Bestimme die Anzahl der Symmetrieachsen eines Quadrats.", steps: ["Eine senkrecht, eine waagrecht, zwei diagonal.", "Gesamt: 4 Symmetrieachsen."] }, exercises: [ { q: "Bestimme die Anzahl der Symmetrieachsen eines Rechtecks.", a: "2" }, { q: "Bestimme die Anzahl der Symmetrieachsen eines gleichschenkligen Dreiecks.", a: "1" }, { q: "Bestimme die Anzahl der Symmetrieachsen eines gleichseitigen Dreiecks.", a: "3" }, { q: "Bestimme die Anzahl der Symmetrieachsen eines Kreises.", a: "Unendlich viele." }, { q: "Begründe, ob der Buchstabe H punktsymmetrisch ist.", a: "Ja, er ist punktsymmetrisch zu seiner Mitte." } ] },
+            "l3_3_B": { desc: "Kongruenzsätze anwenden.", example: { q: "Weise nach, ob zwei Dreiecke mit den Seiten 3, 4, 5 und 3, 4, 5 kongruent sind.", steps: ["Ja, nach dem Kongruenzsatz SSS (Seite-Seite-Seite) sind sie deckungsgleich."] }, exercises: [ { q: "Dreieck A hat die Seiten 6, 8, 10. Dreieck B hat die Seiten 6, 8 und einen eingeschlossenen Winkel von 90°. Ermittle, ob sie kongruent sind.", a: "Ja (Nach Pythagoras ist die 3. Seite bei B auch 10, also SSS)." }, { q: "Nenne die Bedingung für den Kongruenzsatz SWS.", a: "Übereinstimmung in zwei Seiten und dem eingeschlossenen Winkel." }, { q: "Dreieck 1 hat die Winkel 40°, 60°, 80°. Dreieck 2 hat die Winkel 40°, 60°, 80°. Sind sie zwingend kongruent?", a: "Nein, sie sind nur ähnlich." }, { q: "Ein Dreieck besitzt die Seiten 5, 5 und 5. Bestimme seine Form.", a: "Ein gleichseitiges Dreieck." }, { q: "Ermittle, ob ein gleicher Flächeninhalt automatisch Kongruenz bedeutet.", a: "Nein." } ] },
+            "l3_3_C": { desc: "Geometrische Abbildungen.", example: { q: "Nenne die drei geometrischen Abbildungen, die kongruente Figuren erzeugen.", steps: ["Verschiebung, Drehung, Spiegelung."] }, exercises: [ { q: "Der Punkt (2|3) wird an der y-Achse gespiegelt. Bestimme seine neuen Koordinaten.", a: "(-2|3)" }, { q: "Der Punkt (1|1) wird am Ursprung (0|0) gespiegelt. Bestimme seine neuen Koordinaten.", a: "(-1|-1)" }, { q: "Ein Dreieck wird um 360° gedreht. Bestimme die Lage des Bildes.", a: "Es liegt exakt auf dem Original." }, { q: "Der Punkt (4|2) wird um 3 Einheiten nach links verschoben. Bestimme die neuen Koordinaten.", a: "(1|2)" }, { q: "Begründe, ob eine zentrische Streckung mit Maßstab 2 eine kongruente Figur erzeugt.", a: "Nein, sie erzeugt eine ähnliche Figur." } ] },
+            
+            "l3_4_A": { 
+                desc: "1. Strahlensatz (Abschnitte auf den Strahlen).", 
+                example: { 
+                    q: "Berechne den Abschnitt d im abgebildeten Strahlensatz.", 
+                    svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><line x1="20" y1="60" x2="180" y2="20"/><line x1="20" y1="60" x2="180" y2="100"/><line x1="80" y1="45" x2="80" y2="75" stroke="#f59e0b"/><line x1="140" y1="30" x2="140" y2="90" stroke="#f59e0b"/><rect x="5" y="55" width="15" height="15" class="svg-bg" stroke="none"/><text x="10" y="65" fill="currentColor" class="svg-text">Z</text><rect x="42" y="32" width="15" height="15" class="svg-bg" stroke="none"/><text x="45" y="45" fill="#38bdf8" class="svg-text">2</text><rect x="105" y="17" width="25" height="15" class="svg-bg" stroke="none"/><text x="110" y="30" fill="#38bdf8" class="svg-text">d=?</text><rect x="42" y="72" width="15" height="15" class="svg-bg" stroke="none"/><text x="45" y="85" fill="#10b981" class="svg-text">4</text><rect x="105" y="87" width="15" height="15" class="svg-bg" stroke="none"/><text x="110" y="100" fill="#10b981" class="svg-text">6</text></svg>`,
+                    steps: ["Formel für den 1. Strahlensatz: Kurz / Lang = Kurz / Lang", "<span class='math'>2 / d = 4 / 6</span>", "Über Kreuz multiplizieren: <span class='math'>4d = 12 ➔ d = 3</span>"] 
+                }, 
+                exercises: [
+                    { q: "Berechne x in der abgebildeten Figur.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><line x1="20" y1="60" x2="180" y2="20"/><line x1="20" y1="60" x2="180" y2="100"/><line x1="80" y1="45" x2="80" y2="75" stroke="#f59e0b"/><line x1="140" y1="30" x2="140" y2="90" stroke="#f59e0b"/><text x="10" y="65" fill="currentColor" class="svg-text">Z</text><text x="45" y="45" fill="#38bdf8" class="svg-text">3</text><text x="110" y="30" fill="#38bdf8" class="svg-text">6</text><text x="45" y="85" fill="#10b981" class="svg-text">5</text><text x="110" y="100" fill="#f43f5e" class="svg-text">x=?</text></svg>`, a: "10" },
+                    { q: "Strahl 1 ist geteilt in Abschnitte 4 und 8. Strahl 2 ist geteilt in x und 10. Berechne x.", a: "5" },
+                    { q: "Strahl 1 ist geteilt in Abschnitte 2 und x. Strahl 2 ist geteilt in 3 und 9. Berechne x.", a: "6" },
+                    { q: "Der Abstand vom Zentrum Z zur ersten Parallele beträgt 4. Der Abstand von Z zur zweiten Parallele beträgt 12. Bestimme den Maßstab.", a: "3" },
+                    { q: "Nenne die geometrische Voraussetzung, damit die Strahlensätze angewendet werden dürfen.", a: "Die beiden Geraden, die die Strahlen schneiden, müssen parallel zueinander sein." }
+                ]
+            },
+            "l3_4_B": { 
+                desc: "2. Strahlensatz (Vergleich mit Parallelen).", 
+                example: { 
+                    q: "Berechne die Länge der oberen Parallelen x in der abgebildeten Figur.", 
+                    svg: `<svg viewBox="0 0 250 150" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><line x1="20" y1="130" x2="230" y2="20"/><line x1="20" y1="130" x2="230" y2="130"/><line x1="90" y1="93" x2="90" y2="130" stroke="#f59e0b" stroke-width="3"/><line x1="180" y1="46" x2="180" y2="130" stroke="#f59e0b" stroke-width="3"/><rect x="5" y="132" width="15" height="15" class="svg-bg" stroke="none"/><text x="10" y="145" fill="currentColor" class="svg-text">Z</text><path d="M 20 140 Q 55 150 90 140" stroke="#38bdf8" stroke-dasharray="4"/><rect x="45" y="142" width="15" height="15" class="svg-bg" stroke="none"/><text x="50" y="155" fill="#38bdf8" class="svg-text">5</text><path d="M 20 160 Q 100 170 180 160" stroke="#10b981" stroke-dasharray="4"/><rect x="95" y="162" width="20" height="15" class="svg-bg" stroke="none"/><text x="100" y="175" fill="#10b981" class="svg-text">15</text><rect x="68" y="102" width="15" height="15" class="svg-bg" stroke="none"/><text x="70" y="115" fill="#f59e0b" class="svg-text">2</text><rect x="175" y="75" width="30" height="15" class="svg-bg" stroke="none"/><text x="178" y="88" fill="#f43f5e" class="svg-text">x = ?</text></svg>`,
+                    steps: ["Formel ansetzen: Kurzer Strahl (von Z) / Langer Strahl (von Z) = Kurze Parallele / Lange Parallele", "<span class='math'>5 / 15 = 2 / x</span>", "Über Kreuz multiplizieren: <span class='math'>5x = 30 ➔ x = 6</span>"] 
+                }, 
+                exercises: [
+                    { q: "Berechne die Parallele x in der abgebildeten Figur.", svg: `<svg viewBox="0 0 250 150" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><line x1="20" y1="130" x2="230" y2="20"/><line x1="20" y1="130" x2="230" y2="130"/><line x1="90" y1="93" x2="90" y2="130" stroke="#f59e0b" stroke-width="3"/><line x1="180" y1="46" x2="180" y2="130" stroke="#f59e0b" stroke-width="3"/><text x="10" y="145" fill="currentColor" class="svg-text">Z</text><path d="M 20 140 Q 55 150 90 140" stroke="#38bdf8" stroke-dasharray="4"/><text x="50" y="155" fill="#38bdf8" class="svg-text">3</text><path d="M 20 160 Q 100 170 180 160" stroke="#10b981" stroke-dasharray="4"/><text x="100" y="175" fill="#10b981" class="svg-text">9</text><text x="70" y="115" fill="#f43f5e" class="svg-text">x=?</text><text x="185" y="88" fill="#f59e0b" class="svg-text">12</text></svg>`, a: "4" },
+                    { q: "Die Strecke von Z bis A beträgt 4, von Z bis B beträgt sie 10. Die Parallele bei A misst 2. Berechne die Parallele bei B.", a: "5" },
+                    { q: "Die Parallele bei A misst 3, die Parallele bei B misst 9. Die Strecke von Z bis A beträgt 2. Berechne die Strecke von Z bis B.", a: "6" },
+                    { q: "Eine Parallele verdoppelt sich in ihrer Länge. Bestimme, was mit dem dazugehörigen Strahlenabschnitt ab dem Zentrum passiert.", a: "Er verdoppelt sich ebenfalls." },
+                    { q: "Begründe den Fehler in der folgenden Formel für den 2. Strahlensatz: 'Teilstück / Teilstück = Kurze Parallele / Lange Parallele'.", a: "Falsch. Beim 2. Strahlensatz muss immer der gesamte Abschnitt vom Zentrum Z aus verglichen werden." }
+                ]
+            },
+            "l3_4_C": { 
+                desc: "Anwendungsaufgaben und X-Figur.", 
+                example: { 
+                    q: "Berechne die fehlende Parallele x in der abgebildeten X-Figur.", 
+                    svg: `<svg viewBox="0 0 250 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><line x1="20" y1="20" x2="230" y2="100"/><line x1="20" y1="100" x2="230" y2="20"/><line x1="60" y1="35" x2="60" y2="85" stroke="#f59e0b" stroke-width="3"/><line x1="180" y1="80" x2="180" y2="40" stroke="#f59e0b" stroke-width="3"/><rect x="115" y="62" width="15" height="15" class="svg-bg" stroke="none"/><text x="120" y="75" fill="currentColor" class="svg-text">Z</text><path d="M 60 25 Q 90 40 125 60" stroke="#38bdf8" stroke-dasharray="4"/><rect x="75" y="22" width="15" height="15" class="svg-bg" stroke="none"/><text x="80" y="35" fill="#38bdf8" class="svg-text">4</text><path d="M 125 60 Q 150 70 180 85" stroke="#10b981" stroke-dasharray="4"/><rect x="135" y="72" width="15" height="15" class="svg-bg" stroke="none"/><text x="140" y="85" fill="#10b981" class="svg-text">8</text><rect x="42" y="52" width="15" height="15" class="svg-bg" stroke="none"/><text x="45" y="65" fill="#f59e0b" class="svg-text">3</text><rect x="185" y="52" width="25" height="15" class="svg-bg" stroke="none"/><text x="190" y="65" fill="#f43f5e" class="svg-text">x=?</text></svg>`,
+                    steps: ["Bleibe auf der gleichen durchgehenden Linie. Strahl 1 = 4, Strahl 2 = 8.", "<span class='math'>4 / 8 = 3 / x</span>", "<span class='math'>4x = 24 ➔ x = 6</span>"] 
+                }, 
+                exercises: [
+                    { q: "Berechne x in der abgebildeten X-Figur.", svg: `<svg viewBox="0 0 250 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><line x1="20" y1="20" x2="230" y2="100"/><line x1="20" y1="100" x2="230" y2="20"/><line x1="60" y1="35" x2="60" y2="85" stroke="#f59e0b" stroke-width="3"/><line x1="180" y1="80" x2="180" y2="40" stroke="#f59e0b" stroke-width="3"/><text x="120" y="75" fill="currentColor" class="svg-text">Z</text><path d="M 60 25 Q 90 40 125 60" stroke="#38bdf8" stroke-dasharray="4"/><text x="80" y="35" fill="#38bdf8" class="svg-text">5</text><path d="M 125 60 Q 150 70 180 85" stroke="#10b981" stroke-dasharray="4"/><text x="140" y="85" fill="#10b981" class="svg-text">x</text><text x="45" y="65" fill="#f59e0b" class="svg-text">4</text><text x="190" y="65" fill="#f59e0b" class="svg-text">8</text></svg>`, a: "10. (<span class='math'>5 / x = 4 / 8</span>)" },
+                    { q: "Ein 2m großer Mann wirft einen 3m langen Schatten. Ein Baum wirft einen 15m langen Schatten. Berechne die Höhe des Baumes.", a: "10m" },
+                    { q: "Ein 1m langer Stab wirft einen 2m langen Schatten. Ein Turm wirft einen 40m langen Schatten. Berechne die Höhe des Turms.", a: "20m" },
+                    { q: "Zwei Parallelen sind 4 und 10 lang. Der Abstand vom Zentrum zur kurzen Parallele beträgt 6. Berechne den Abstand vom Zentrum zur langen Parallele.", a: "15" },
+                    { q: "In einer X-Figur ist eine Parallele dreimal so lang wie die andere. Bestimme das Längenverhältnis der dazugehörigen Strahlenabschnitte.", a: "Sie sind ebenfalls im Verhältnis 1:3." }
+                ]
+            },
+
+            "l3_5_A": { desc: "Trigonometrie (Grundlagen).", example: { q: "Nenne die Seiten, die die Funktion Sinus in Beziehung setzt.", steps: ["Die Formel lautet: Sinus = Gegenkathete / Hypotenuse."] }, exercises: [ { q: "Nenne die Seiten, die die Funktion Kosinus in Beziehung setzt.", a: "Ankathete / Hypotenuse." }, { q: "Nenne die Seiten, die die Funktion Tangens in Beziehung setzt.", a: "Gegenkathete / Ankathete." }, { q: "Die Gegenkathete misst 3, die Ankathete misst 4. Berechne den Tangens.", a: "0,75" }, { q: "Die Gegenkathete misst 5, die Hypotenuse misst 10. Berechne den Sinus.", a: "0,5" }, { q: "Bestimme die Lage der Hypotenuse im rechtwinkligen Dreieck.", a: "Gegenüber dem rechten Winkel." } ] },
+            "l3_5_B": { 
+                desc: "Trigonometrie (Seiten und Winkel berechnen).", 
+                example: { 
+                    q: "Berechne die Gegenkathete G im abgebildeten Dreieck.", 
+                    svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 160,100 160,20" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><path d="M 50 100 A 30 30 0 0 0 60 80" stroke="#f59e0b"/><text x="65" y="95" fill="#f59e0b" class="svg-text">30°</text><rect x="162" y="52" width="25" height="15" class="svg-bg" stroke="none"/><text x="165" y="65" fill="#f43f5e" class="svg-text">G = ?</text><rect x="68" y="32" width="60" height="15" class="svg-bg" stroke="none"/><text x="70" y="45" fill="#38bdf8" class="svg-text">Hyp = 10</text></svg>`,
+                    steps: ["Stelle die Formel auf: <span class='math'>sin(30°) = G / 10</span>", "Umstellen: <span class='math'>G = 10 · sin(30°)</span>", "<span class='math'>G = 5</span>"] 
+                }, 
+                exercises: [
+                    { q: "Berechne die Ankathete A im abgebildeten Dreieck.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><polygon points="20,100 160,100 160,20" fill="rgba(16, 185, 129, 0.1)" stroke="#10b981"/><path d="M 50 100 A 30 30 0 0 0 60 80" stroke="#f59e0b"/><text x="65" y="95" fill="#f59e0b" class="svg-text">45°</text><text x="165" y="65" fill="#10b981" class="svg-text">10</text><rect x="80" y="102" width="25" height="15" class="svg-bg" stroke="none"/><text x="85" y="115" fill="#f43f5e" class="svg-text">A=?</text></svg>`, a: "10. (<span class='math'>tan(45°) = 10 / A</span>, tan(45°) ist 1, also A=10)." },
+                    { q: "Die Gegenkathete misst 5, die Hypotenuse misst 10. Berechne den Winkel.", a: "30°" },
+                    { q: "Die Ankathete misst 5, der Winkel beträgt 45°. Berechne die Gegenkathete.", a: "5" },
+                    { q: "Die Ankathete misst 8, die Hypotenuse misst 10. Berechne den Winkel.", a: "ca. 36,9°" },
+                    { q: "Der Winkel beträgt 45°, die Gegenkathete misst 10. Berechne die Ankathete.", a: "10" }
+                ]
+            },
+            "l3_5_C": { desc: "Trigonometrie (Anwendungen).", example: { q: "Eine Rampe ist 100 m lang und überwindet eine Höhe von 10 m. Berechne den Neigungswinkel.", steps: ["Höhe = Gegenkathete, Rampe = Hypotenuse.", "<span class='math'>sin(α) = 10 / 100 = 0,1</span>", "Umkehrfunktion anwenden: <span class='math'>α ≈ 5,7°</span>"] }, exercises: [ { q: "Eine Straße hat eine Steigung von 10% (Tangens = 0,1). Berechne den Neigungswinkel.", a: "ca. 5,7°" }, { q: "Eine quadratische Pyramide besitzt eine Grundkante von 10 und eine Höhe von 10. Berechne den Neigungswinkel der Seitenfläche.", a: "ca. 63,4° (Nutze das Dreieck im Inneren mit AK=5 und GK=10)." }, { q: "Ein Baum wirft 10 m Schatten. Der Sonnenwinkel beträgt 45°. Berechne die Baumhöhe.", a: "10 m" }, { q: "Eine Leiter ist 5 m lang und lehnt in einem Winkel von 70° am Boden. Berechne die erreichte Höhe an der Wand.", a: "ca. 4,7 m" }, { q: "Ein Drachen fliegt an einer 50 m langen Schnur unter einem Winkel von 30°. Berechne die Höhe des Drachens.", a: "25 m" } ] },
+
+            "l3_6_A": { 
+                desc: "Volumen von Prismen und Zylindern.", 
+                example: { 
+                    q: "Berechne das Volumen des abgebildeten Zylinders.", 
+                    svg: `<svg viewBox="0 0 150 150" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><ellipse cx="75" cy="30" rx="50" ry="15" fill="rgba(56, 189, 248, 0.1)" /><path d="M 25 120 A 50 15 0 0 0 125 120" stroke="currentColor" /><path d="M 25 120 A 50 15 0 0 1 125 120" stroke="currentColor" stroke-dasharray="5,5" /><line x1="25" y1="30" x2="25" y2="120" /><line x1="125" y1="30" x2="125" y2="120" /><line x1="75" y1="30" x2="125" y2="30" stroke="#f43f5e" /><rect x="85" y="12" width="30" height="15" class="svg-bg" stroke="none"/><text x="88" y="25" fill="#f43f5e" class="svg-text">r = 5</text><line x1="135" y1="30" x2="135" y2="120" stroke="#10b981" /><rect x="140" y="67" width="45" height="15" class="svg-bg" stroke="none"/><text x="142" y="80" fill="#10b981" class="svg-text">h = 10</text></svg>`,
+                    steps: ["Formel ansetzen: <span class='math'>V = Grundfläche · Höhe</span>", "Die Grundfläche ist ein Kreis: <span class='math'>G = π · r<sup>2</sup></span>", "<span class='math'>V = π · 5<sup>2</sup> · 10</span>", "<span class='math'>V = 250π ≈ 785,4</span>"] 
+                }, 
+                exercises: [
+                    { q: "Berechne das Volumen eines Würfels mit der Kantenlänge 4 cm.", a: "64 cm³" },
+                    { q: "Berechne das Volumen eines Quaders mit den Maßen a=3, b=4 und c=5.", a: "60" },
+                    { q: "Berechne das Volumen eines Zylinders mit r=2 und h=5.", a: "20π ≈ 62,8" },
+                    { q: "Ein Zylinder hat einen Durchmesser von 6 cm und eine Höhe von 10 cm. Berechne das Volumen.", a: "90π ≈ 282,7 cm³" },
+                    { q: "Ein Prisma hat eine dreieckige Grundfläche von 15 cm² und eine Höhe von 10 cm. Berechne das Volumen.", a: "150 cm³" }
+                ]
+            },
+            "l3_6_B": { 
+                desc: "Zusammengesetzte Körper & Rückwärtsrechnen.", 
+                example: { 
+                    q: "Berechne das Gesamtvolumen des abgebildeten Silos (Zylinder + Kegel).", 
+                    svg: `<svg viewBox="0 0 200 150" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><line x1="20" y1="20" x2="40" y2="20" stroke="#94a3b8" /><line x1="20" y1="140" x2="40" y2="140" stroke="#94a3b8" /><line x1="30" y1="20" x2="30" y2="140" stroke="#94a3b8" /><rect x="15" y="72" width="20" height="15" class="svg-bg" stroke="none"/><text x="18" y="85" fill="#94a3b8" class="svg-text">12</text><line x1="160" y1="70" x2="180" y2="70" stroke="#10b981" /><line x1="160" y1="140" x2="180" y2="140" stroke="#10b981" /><line x1="170" y1="70" x2="170" y2="140" stroke="#10b981" /><rect x="165" y="97" width="15" height="15" class="svg-bg" stroke="none"/><text x="167" y="110" fill="#10b981" class="svg-text">8</text><polygon points="100,20 140,70 60,70" stroke="currentColor" fill="rgba(244, 63, 94, 0.1)" /><line x1="60" y1="70" x2="60" y2="140" /><line x1="140" y1="70" x2="140" y2="140" /><path d="M 60 140 A 40 10 0 0 0 140 140" stroke="currentColor" /><ellipse cx="100" cy="70" rx="40" ry="10" stroke="currentColor" stroke-dasharray="3,3" fill="none" /><line x1="100" y1="70" x2="140" y2="70" stroke="#38bdf8" /><rect x="110" y="52" width="30" height="15" class="svg-bg" stroke="none"/><text x="112" y="65" fill="#38bdf8" class="svg-text">r=3</text></svg>`,
+                    steps: ["Bestimme die Kegelhöhe: 12 - 8 = 4", "Volumen Zylinder: <span class='math'>π·3<sup>2</sup>·8 = 72π</span>", "Volumen Kegel: <span class='math'>1/3·π·3<sup>2</sup>·4 = 12π</span>", "Addiere die Volumina: <span class='math'>84π ≈ 263,9</span>"] 
+                }, 
+                exercises: [
+                    { q: "Ein Würfel besitzt ein Volumen von 343 cm³. Berechne die Kantenlänge.", a: "7 cm" },
+                    { q: "Ein Zylinder besitzt ein Volumen von 314 cm³ und eine Höhe von 4 cm. Berechne den Radius.", a: "ca. 5 cm" },
+                    { q: "Eine quadratische Pyramide besitzt ein Volumen von 100 und eine Höhe von 3. Berechne die Grundkante.", a: "10" },
+                    { q: "Ein Kegel und ein Zylinder haben die gleichen Abmessungen. Der Kegel fasst 10 Liter. Berechne das Volumen des Zylinders.", a: "30 Liter" },
+                    { q: "Ein Würfel mit a=10 hat auf einer Seite eine halbkugelförmige Einbuchtung mit r=5. Berechne das verbleibende Volumen.", a: "ca. 738,17 cm³" }
+                ]
+            },
+            "l3_6_C": { 
+                desc: "Körper, Pythagoras und Trigonometrie kombiniert.", 
+                example: { 
+                    q: "Berechne das Volumen der abgebildeten quadratischen Pyramide.", 
+                    svg: `<svg viewBox="0 0 250 150" width="100%" height="150" stroke="currentColor" fill="none" stroke-width="2"><polygon points="50,130 170,130 210,90 90,90" stroke="rgba(255,255,255,0.3)" fill="none" /><line x1="50" y1="130" x2="170" y2="130" stroke="#94a3b8" /><rect x="95" y="132" width="35" height="15" class="svg-bg" stroke="none"/><text x="98" y="145" fill="#94a3b8" class="svg-text">a = 6</text><line x1="50" y1="130" x2="130" y2="20" stroke="rgba(255,255,255,0.7)" /><line x1="170" y1="130" x2="130" y2="20" stroke="rgba(255,255,255,0.7)" /><line x1="210" y1="90" x2="130" y2="20" stroke="rgba(255,255,255,0.7)" /><line x1="130" y1="110" x2="170" y2="110" stroke="#38bdf8" stroke-dasharray="3,3" /><rect x="135" y="112" width="15" height="15" class="svg-bg" stroke="none"/><text x="138" y="125" fill="#38bdf8" class="svg-text">3</text><line x1="130" y1="110" x2="130" y2="20" stroke="#f43f5e" stroke-dasharray="3,3" stroke-width="3" /><rect x="105" y="67" width="25" height="15" class="svg-bg" stroke="none"/><text x="108" y="80" fill="#f43f5e" class="svg-text">h = ?</text><line x1="170" y1="110" x2="130" y2="20" stroke="#10b981" stroke-width="2" /><rect x="150" y="47" width="50" height="15" class="svg-bg" stroke="none"/><text x="152" y="60" fill="#10b981" class="svg-text">h_a = 5</text></svg>`,
+                    steps: ["Wende den Pythagoras im Inneren an, um die Körperhöhe h zu finden: <span class='math'>h<sup>2</sup> + 3<sup>2</sup> = 5<sup>2</sup></span>", "<span class='math'>h<sup>2</sup> + 9 = 25 ➔ h = 4</span>", "Setze in die Volumenformel ein: <span class='math'>V = 1/3 · 36 · 4 = 48</span>"] 
+                }, 
+                exercises: [
+                    { type: "image", q: "Berechne die Körperhöhe h des abgebildeten Kegels.", svg: `<svg viewBox="0 0 200 120" width="100%" height="120" stroke="currentColor" fill="none" stroke-width="2"><ellipse cx="100" cy="100" rx="60" ry="15" fill="rgba(255,255,255,0.05)" /><line x1="40" y1="100" x2="100" y2="10" /><line x1="160" y1="100" x2="100" y2="10" /><line x1="100" y1="100" x2="160" y2="100" stroke="#38bdf8" /><rect x="115" y="102" width="30" height="15" class="svg-bg" stroke="none"/><text x="118" y="115" fill="#38bdf8" class="svg-text">r = 4</text><line x1="100" y1="100" x2="100" y2="10" stroke="#f43f5e" stroke-dasharray="4,4" /><path d="M 140 100 A 20 20 0 0 0 148 80" stroke="#10b981" /><text x="145" y="95" fill="#10b981" class="svg-text">60°</text></svg>`, a: "h = 4 · tan(60°) ≈ 6,93" },
+                    { q: "Ein Kegel besitzt ein Volumen von 314 und einen Radius von 5. Berechne zunächst die Körperhöhe h und bestimme damit die Länge der Mantellinie s.", a: "h ≈ 12. s = 13 (Pythagoras)." },
+                    { q: "Auf einem Zylinder (r=3, h=5) ist eine Halbkugel aufgesetzt. Berechne die gesamte Oberfläche des Körpers.", a: "57π ≈ 179 (Zylinderwand + Zylinderboden + Halbkugel-Oberfläche)." },
+                    { q: "Ein Quader hat die Maße 4x4x10. Durch die Mitte verläuft ein zylindrisches Loch mit Radius 1. Berechne das verbleibende Volumen.", a: "160 - 10π ≈ 128,6" },
+                    { q: "Eine Pyramide hat eine quadratische Grundfläche mit a=10. Die Mantellinie s der Kanten misst 13. Berechne die Körperhöhe h.", a: "Bodendiagonale ist √200. Halbe Diagonale = √50. h² + 50 = 169 ➔ h = √119 ≈ 10,9" }
+                ]
+            }
+        }
+    };
+
+    /* ================= APP LOGIK ================= */
+    let state = { view: 'bpe', bpeId: null, lfsId: null, levelId: null };
+
+    const views = { bpe: document.getElementById('view-bpe'), lfs: document.getElementById('view-lfs'), levels: document.getElementById('view-levels'), tasks: document.getElementById('view-tasks') };
+    const btnBack = document.getElementById('btnBack');
+    const breadcrumb = document.getElementById('breadcrumb');
+    const globalSolBox = document.getElementById('global-solutions-box');
+    const globalSolList = document.getElementById('global-solutions-list');
+    const btnShowAllSol = document.getElementById('btn-show-all-solutions');
+
+    function init() {
+        renderBpes();
+        updateView();
+        
+        btnBack.addEventListener('click', () => {
+            if (state.view === 'tasks') { state.view = 'levels'; state.levelId = null; }
+            else if (state.view === 'levels') { state.view = 'lfs'; state.lfsId = null; }
+            else if (state.view === 'lfs') { state.view = 'bpe'; state.bpeId = null; }
+            updateView();
+        });
+    }
+
+    function getBadgeHtml(type) {
+        if (!type) return '';
+        switch(type) {
+            case 'calc': return '<span class="badge badge-calc">Rechenaufgabe</span>';
+            case 'tf': return '<span class="badge badge-tf">Wahr / Falsch</span>';
+            case 'error': return '<span class="badge badge-error">Fehlersuche</span>';
+            case 'concept': return '<span class="badge badge-concept">Verständnis</span>';
+            case 'image': return '<span class="badge badge-image">Bildaufgabe</span>';
+            default: return '';
+        }
+    }
+
+    function updateView() {
+        Object.values(views).forEach(v => v.classList.remove('active'));
+        views[state.view].classList.add('active');
+
+        let path = ["Home"];
+        if (state.bpeId) path.push(db.bpes.find(b => b.id === state.bpeId).title.split(":")[0]);
+        if (state.lfsId) path.push(db.lfs[state.bpeId].find(l => l.id === state.lfsId).title);
+        if (state.levelId) path.push(db.levels.find(l => l.id === state.levelId).title.split(":")[0]);
+        
+        breadcrumb.innerHTML = path.map((p, i) => i === path.length - 1 ? `<span>${p}</span>` : p).join(' / ');
+        btnBack.style.display = state.view === 'bpe' ? 'none' : 'block';
+    }
+
+    function renderBpes() {
+        const c = document.getElementById('bpe-grid'); c.innerHTML = '';
+        db.bpes.forEach(bpe => {
+            const b = document.createElement('div'); b.className = 'card-btn';
+            b.innerHTML = `<h2>${bpe.title}</h2><p>${bpe.desc}</p>`;
+            b.onclick = () => { state.bpeId = bpe.id; state.view = 'lfs'; renderLfs(); updateView(); };
+            c.appendChild(b);
+        });
+    }
+
+    function renderLfs() {
+        document.getElementById('bpe-title').innerText = db.bpes.find(b => b.id === state.bpeId).title;
+        const c = document.getElementById('lfs-grid'); c.innerHTML = '';
+        db.lfs[state.bpeId].forEach(lfs => {
+            const b = document.createElement('div'); b.className = 'card-btn';
+            b.innerHTML = `<h2>${lfs.title}</h2><p>${lfs.desc}</p>`;
+            b.onclick = () => { state.lfsId = lfs.id; state.view = 'levels'; renderLevels(); updateView(); };
+            c.appendChild(b);
+        });
+    }
+
+    function renderLevels() {
+        document.getElementById('lfs-title').innerText = db.lfs[state.bpeId].find(l => l.id === state.lfsId).title;
+        const c = document.getElementById('levels-grid'); c.innerHTML = '';
+        db.levels.forEach(level => {
+            const b = document.createElement('div'); b.className = `card-btn ${level.cssClass}`;
+            b.innerHTML = `<h2>${level.title}</h2><p>${level.desc}</p>`;
+            b.onclick = () => { state.levelId = level.id; state.view = 'tasks'; renderTasks(); updateView(); };
+            c.appendChild(b);
+        });
+    }
+
+    function renderTasks() {
+        const lfs = db.lfs[state.bpeId].find(l => l.id === state.lfsId);
+        const level = db.levels.find(l => l.id === state.levelId);
+        const taskKey = `${state.lfsId}_${state.levelId}`;
+        const taskData = db.tasks[taskKey];
+
+        document.getElementById('task-title').innerText = `${lfs.title} - ${level.title}`;
+        
+        // Zurücksetzen des Lösungsbereichs
+        globalSolBox.classList.remove('open');
+        btnShowAllSol.innerText = "Alle Lösungen anzeigen";
+        btnShowAllSol.style.display = 'block';
+
+        if(!taskData) {
+            document.getElementById('task-desc').innerText = "Für diesen Knoten wurden keine Aufgaben hinterlegt.";
+            document.getElementById('example-container').innerHTML = '';
+            document.getElementById('tasks-container').innerHTML = '';
+            btnShowAllSol.style.display = 'none';
+            return;
+        }
+
+        document.getElementById('task-desc').innerText = taskData.desc;
+
+        // Beispiel
+        const exC = document.getElementById('example-container');
+        let stepsHtml = taskData.example.steps.map(s => `<li>${s}</li>`).join('');
+        let svgEx = taskData.example.svg ? `<div class="task-image">${taskData.example.svg}</div>` : '';
+
+        exC.innerHTML = `
+            <div class="example-card">
+                <h3>💡 Angeleitetes Beispiel</h3>
+                <div class="task-question">${taskData.example.q}</div>
+                ${svgEx}
+                <button class="btn-action" style="max-width:300px; margin-top: 10px;" onclick="toggleSolution('example-sol')">Lösungsweg anzeigen</button>
+                <div id="example-sol" class="solution-box">
+                    <p style="font-weight:bold;">Schritt für Schritt:</p>
+                    <ul class="step-list">${stepsHtml}</ul>
+                </div>
+            </div>
+        `;
+
+        // Übungsaufgaben rendern
+        const tC = document.getElementById('tasks-container'); 
+        tC.innerHTML = '';
+        globalSolList.innerHTML = '';
+
+        taskData.exercises.forEach((ex, i) => {
+            // HTML für die Aufgabe
+            const card = document.createElement('div'); 
+            card.className = 'task-card';
+            let svgExer = ex.svg ? `<div class="task-image">${ex.svg}</div>` : '';
+
+            card.innerHTML = `
+                <div class="task-content">
+                    ${getBadgeHtml(ex.type)}
+                    <div class="task-title-nr">Aufgabe ${i + 1}:</div>
+                    <div class="task-question">${ex.q}</div>
+                    ${svgExer}
+                </div>
+            `;
+            tC.appendChild(card);
+
+            // HTML für die Lösungsliste vorbereiten
+            const solLi = document.createElement('li');
+            solLi.innerHTML = `<strong>Aufgabe ${i + 1}:</strong> ${ex.a}`;
+            globalSolList.appendChild(solLi);
+        });
+    }
+
+    window.toggleSolution = function(id) { document.getElementById(id).classList.toggle('open'); };
+    
+    window.toggleAllSolutions = function() {
+        if (globalSolBox.classList.contains('open')) {
+            globalSolBox.classList.remove('open');
+            btnShowAllSol.innerText = "Alle Lösungen anzeigen";
+        } else {
+            globalSolBox.classList.add('open');
+            btnShowAllSol.innerText = "Lösungen verbergen";
+        }
+    };
+
+    init();
+</script>
+</body>
+</html>
