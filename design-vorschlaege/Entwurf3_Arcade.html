@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entwurf 3 · Arcade – Mathe Lernnavigator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+    /* ENTWURF 3 – „Arcade“: dynamisch, Neon, Gaming-HUD. Welten, Stages, XP und Quests. */
+    :root {
+        --bg: #07051a; --panel: rgba(20,14,48,0.82); --panel-2: #1a1240; --edge: #3a2a7a;
+        --cyan: #22f3ff; --pink: #ff2bd6; --lime: #b6ff3b; --gold: #ffe14d; --text: #eae6ff; --muted: #9b92c9;
+        --lvl-A: #b6ff3b; --lvl-B: #ffb42b; --lvl-C: #ff3b6b;
+        --hud: "Orbitron", "Rajdhani", sans-serif; --font: "Rajdhani", system-ui, sans-serif; --pixel: "Press Start 2P", monospace;
+        --cut: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 18px; line-height: 1.5; overflow-x: hidden; min-height: 100vh; }
+    button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+
+    /* Hintergrund: Neon-Gitterboden + Scanlines */
+    .bg { position: fixed; inset: 0; z-index: -2; background: radial-gradient(ellipse at 50% -10%, #3b1a8a 0%, transparent 60%), radial-gradient(ellipse at 100% 100%, rgba(255,43,214,.25), transparent 50%), var(--bg); }
+    .grid { position: fixed; left: -50%; right: -50%; bottom: -10%; height: 55vh; z-index: -1; background-image: linear-gradient(rgba(34,243,255,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(34,243,255,.35) 1px, transparent 1px); background-size: 60px 60px; transform: perspective(400px) rotateX(62deg); transform-origin: bottom; mask-image: linear-gradient(transparent, #000 70%); animation: run 3s linear infinite; }
+    @keyframes run { to { background-position: 0 60px; } }
+    body::after { content: ""; position: fixed; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.18) 2px 4px); z-index: 10; }
+    @media (prefers-reduced-motion: reduce) { .grid { animation: none; } }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+    /* HUD-Leiste */
+    .hud { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; gap: 16px; flex-wrap: wrap; }
+    .logo { font-family: var(--hud); font-weight: 900; font-size: 1.15rem; letter-spacing: .12em; text-shadow: 0 0 12px var(--cyan); }
+    .logo span { color: var(--pink); text-shadow: 0 0 12px var(--pink); }
+    .player { display: flex; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--edge); padding: 8px 14px; clip-path: var(--cut); }
+    .avatar { width: 34px; height: 34px; background: linear-gradient(135deg, var(--cyan), var(--pink)); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); display: grid; place-items: center; font-family: var(--pixel); font-size: 10px; color: #07051a; }
+    .xp-label { font-family: var(--pixel); font-size: 9px; color: var(--muted); display: flex; justify-content: space-between; gap: 18px; margin-bottom: 5px; }
+    .xp { width: 180px; height: 10px; background: #120c2e; border: 1px solid var(--edge); position: relative; overflow: hidden; }
+    .xp i { position: absolute; inset: 0 auto 0 0; width: 35%; background: linear-gradient(90deg, var(--cyan), var(--lime)); box-shadow: 0 0 10px var(--cyan); transition: width .5s cubic-bezier(.2,1.3,.4,1); }
+
+    .view { display: none; padding: 18px 0 90px; }
+    .view.active { display: block; animation: glitch .45s steps(2) 1, fade .4s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(10px); } }
+    @keyframes glitch { 0% { clip-path: inset(10% 0 60% 0); } 50% { clip-path: inset(60% 0 10% 0); } 100% { clip-path: inset(0); } }
+
+    /* Startbildschirm */
+    .title-screen { text-align: center; padding: 36px 0 28px; }
+    .press { font-family: var(--pixel); font-size: 11px; color: var(--gold); letter-spacing: .15em; animation: blink 1.2s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .title-screen h1 { font-family: var(--hud); font-weight: 900; font-size: clamp(2.2rem, 7vw, 4.6rem); line-height: 1; margin: 14px 0; letter-spacing: .04em; background: linear-gradient(180deg, #fff 20%, var(--cyan) 55%, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 18px rgba(34,243,255,.45)); }
+    .title-screen p { color: var(--muted); font-size: 1.15rem; }
+    .diff-legend { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    .diff-tag { font-family: var(--hud); font-weight: 800; font-size: .8rem; letter-spacing: .12em; padding: 6px 14px; border: 1px solid currentColor; clip-path: var(--cut); background: rgba(0,0,0,.3); }
+
+    .briefing { background: var(--panel); border: 1px solid var(--edge); clip-path: var(--cut); padding: 18px 22px; margin: 18px 0 34px; position: relative; }
+    .briefing::before { content: "MISSION BRIEFING"; font-family: var(--pixel); font-size: 9px; color: var(--pink); position: absolute; top: 12px; right: 18px; }
+    .briefing h3 { font-family: var(--hud); font-size: 1rem; letter-spacing: .1em; color: var(--cyan); margin-bottom: 10px; }
+    .briefing ol { list-style: none; counter-reset: r; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 26px; }
+    .briefing li { position: relative; padding-left: 34px; color: #cfc8f5; font-size: 1rem; }
+    .briefing li::before { counter-increment: r; content: "0" counter(r); position: absolute; left: 0; top: 2px; font-family: var(--pixel); font-size: 10px; color: var(--lime); }
+    .briefing b { color: var(--gold); }
+
+    .sec { font-family: var(--hud); font-weight: 800; letter-spacing: .2em; font-size: 1rem; color: var(--cyan); margin-bottom: 14px; display: flex; align-items: center; gap: 12px; }
+    .sec::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--cyan), transparent); }
+    .worlds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px; }
+    .world { position: relative; text-align: left; padding: 20px; min-height: 170px; background: linear-gradient(160deg, var(--panel-2), rgba(10,6,30,.9)); clip-path: var(--cut); border: 0; transition: transform .2s; overflow: hidden; }
+    .world::before { content: ""; position: absolute; inset: 0; border: 2px solid var(--edge); clip-path: var(--cut); pointer-events: none; }
+    .world:hover { transform: translateY(-4px) scale(1.02); }
+    .world.sel { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 35%, #1a1240), #0a061e); }
+    .world.sel::before { border-color: var(--c); box-shadow: inset 0 0 24px var(--c); }
+    .world-nr { font-family: var(--pixel); font-size: 10px; color: var(--c); }
+    .world h3 { font-family: var(--hud); font-weight: 900; font-size: 1.35rem; margin: 10px 0 4px; letter-spacing: .03em; }
+    .world p { color: var(--muted); font-size: 1rem; }
+    .world .big { position: absolute; right: 12px; bottom: -6px; font-size: 4.2rem; opacity: .25; transform: rotate(-12deg); }
+
+    .stages { display: grid; gap: 10px; }
+    .stage { display: grid; grid-template-columns: 120px 1fr auto; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--edge); padding: 12px 16px; clip-path: var(--cut); }
+    .stage-nr { font-family: var(--pixel); font-size: 10px; color: var(--muted); white-space: nowrap; }
+    .stage-name { font-weight: 700; font-size: 1.12rem; }
+    .diffs { display: flex; gap: 8px; }
+    .diff { font-family: var(--hud); font-weight: 800; font-size: .72rem; letter-spacing: .12em; padding: 8px 12px; border: 1px solid currentColor; clip-path: var(--cut); opacity: .45; transition: all .15s; }
+    .diff:hover { opacity: .8; }
+    .diff.live { opacity: 1; background: color-mix(in srgb, currentColor 18%, transparent); box-shadow: 0 0 16px currentColor; animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 50% { box-shadow: 0 0 4px currentColor; } }
+
+    /* Aufgabenseite (Quest) */
+    .quest-head { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: end; background: var(--panel); border: 1px solid var(--edge); clip-path: var(--cut); padding: 22px 24px; margin-bottom: 22px; }
+    .back { font-family: var(--pixel); font-size: 9px; color: var(--muted); margin-bottom: 12px; display: inline-block; }
+    .back:hover { color: var(--cyan); }
+    .stage-tag { font-family: var(--pixel); font-size: 10px; color: var(--pink); }
+    .quest-head h1 { font-family: var(--hud); font-weight: 900; font-size: clamp(1.5rem, 4vw, 2.3rem); margin: 8px 0 4px; }
+    .quest-head p { color: var(--muted); }
+    .boss { text-align: right; }
+    .boss .diff-tag { color: var(--lvl-A); font-size: .9rem; box-shadow: 0 0 18px rgba(182,255,59,.35); display: inline-block; }
+    .boss .xp { width: 220px; margin-top: 10px; }
+    .boss .xp-label { justify-content: flex-end; margin-top: 10px; }
+
+    .tutorial { border: 1px dashed var(--cyan); background: rgba(34,243,255,.06); padding: 20px 22px; margin-bottom: 26px; clip-path: var(--cut); }
+    .tutorial .lbl { font-family: var(--pixel); font-size: 10px; color: var(--cyan); margin-bottom: 10px; }
+    .tutorial .q { font-size: 1.2rem; font-weight: 600; margin-bottom: 14px; }
+    .neon { font-family: var(--hud); font-weight: 800; letter-spacing: .1em; font-size: .8rem; padding: 11px 18px; color: #07051a; background: var(--cyan); clip-path: var(--cut); box-shadow: 0 0 18px rgba(34,243,255,.5); transition: transform .1s, filter .15s; }
+    .neon:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .neon.pink { background: var(--pink); box-shadow: 0 0 18px rgba(255,43,214,.5); }
+    .neon.ghost { background: transparent; color: var(--cyan); border: 1px solid var(--cyan); }
+    .steps { display: none; margin-top: 16px; list-style: none; }
+    .steps.open { display: block; }
+    .steps li { padding: 8px 0 8px 40px; position: relative; border-left: 2px solid var(--edge); margin-left: 10px; }
+    .steps li::before { content: "▶"; position: absolute; left: -9px; top: 9px; color: var(--cyan); font-size: .8rem; background: var(--bg); }
+
+    .quests { display: grid; gap: 14px; }
+    .quest { display: grid; grid-template-columns: 90px 1fr auto; gap: 16px; align-items: center; background: var(--panel); border: 1px solid var(--edge); padding: 16px 18px; clip-path: var(--cut); transition: border-color .2s, background .2s; }
+    .quest.clear { border-color: var(--lime); background: linear-gradient(90deg, rgba(182,255,59,.12), var(--panel)); }
+    .q-nr { font-family: var(--pixel); font-size: 10px; color: var(--gold); line-height: 1.8; }
+    .q-nr small { display: block; color: var(--muted); font-size: 8px; }
+    .quest .q { font-size: 1.15rem; font-weight: 600; }
+    .loot { display: none; margin-top: 8px; font-family: var(--pixel); font-size: 11px; color: var(--gold); }
+    .loot.open { display: block; }
+    .q-actions { display: flex; gap: 8px; }
+    .small { font-family: var(--hud); font-weight: 800; font-size: .66rem; letter-spacing: .1em; padding: 8px 10px; border: 1px solid var(--edge); clip-path: var(--cut); color: var(--muted); }
+    .small:hover { color: var(--text); border-color: var(--text); }
+    .quest.clear .small.ok { color: #07051a; background: var(--lime); border-color: var(--lime); }
+    .bottom { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+
+    .clear-screen { position: fixed; inset: 0; background: rgba(7,5,26,.85); display: none; place-items: center; z-index: 20; text-align: center; }
+    .clear-screen.show { display: grid; animation: fade .3s; }
+    .clear-screen h2 { font-family: var(--hud); font-weight: 900; font-size: clamp(2rem, 8vw, 4rem); color: var(--lime); text-shadow: 0 0 24px var(--lime); }
+    .clear-screen p { font-family: var(--pixel); font-size: 11px; color: var(--gold); margin: 14px 0 22px; line-height: 2; }
+
+    .math { font-family: "Cambria Math", "Times New Roman", serif; font-size: 1.12em; color: #fff; text-shadow: 0 0 8px rgba(34,243,255,.6); white-space: nowrap; padding: 0 3px; }
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(30px); font-family: var(--pixel); font-size: 9px; line-height: 1.8; background: #120c2e; border: 1px solid var(--pink); color: var(--pink); padding: 12px 16px; opacity: 0; transition: all .25s; pointer-events: none; text-align: center; max-width: 92vw; }
+    .toast.show { opacity: 1; transform: translateX(-50%); }
+
+    @media (max-width: 820px) {
+        body { font-size: 17px; }
+        .worlds, .briefing ol { grid-template-columns: 1fr; }
+        .stage, .quest { grid-template-columns: 1fr; gap: 8px; }
+        .quest-head { grid-template-columns: 1fr; }
+        .boss { text-align: left; }
+        .boss .xp-label { justify-content: flex-start; }
+        .xp { width: 120px; }
+    }
+</style>
+</head>
+<body>
+<div class="bg"></div><div class="grid"></div>
+<div class="wrap">
+    <div class="hud">
+        <div class="logo">MATHE<span>//</span>QUEST</div>
+        <div class="player">
+            <div class="avatar">LV3</div>
+            <div><div class="xp-label"><span>PLAYER XP</span><span id="xp-txt">350 / 1000</span></div><div class="xp"><i id="xp-top"></i></div></div>
+        </div>
+    </div>
+
+    <section class="view active" id="home">
+        <div class="title-screen">
+            <div class="press">▶ PRESS START</div>
+            <h1>LERN&shy;NAVIGATOR</h1>
+            <p>AVdual · Offene Lernzeit · Wähle deine Welt und schalte alle Stages frei.</p>
+            <div class="diff-legend" id="legend"></div>
+        </div>
+        <div class="briefing"><h3>SPIELREGELN</h3><ol id="rules"></ol></div>
+
+        <div class="sec">WORLD SELECT</div>
+        <div class="worlds" id="worlds"></div>
+        <div class="sec" id="stage-title">STAGE SELECT</div>
+        <div class="stages" id="stages"></div>
+    </section>
+
+    <section class="view" id="tasks">
+        <button class="back" onclick="go('home')">◀ STAGE SELECT</button>
+        <div class="quest-head">
+            <div>
+                <div class="stage-tag">WORLD 1 · STAGE 1-1</div>
+                <h1 id="t-title"></h1>
+                <p id="t-desc"></p>
+            </div>
+            <div class="boss">
+                <span class="diff-tag">🟢 ROOKIE · LV 1</span>
+                <div class="xp-label"><span>STAGE XP</span><span id="sxp-txt">0 / 100</span></div>
+                <div class="xp" style="margin-left:auto"><i id="sxp" style="width:0"></i></div>
+            </div>
+        </div>
+        <div class="tutorial">
+            <div class="lbl">◆ TUTORIAL</div>
+            <div class="q" id="ex-q"></div>
+            <button class="neon ghost" onclick="toggleSteps(this)">WALKTHROUGH ANZEIGEN</button>
+            <ol class="steps" id="ex-steps"></ol>
+        </div>
+        <div class="sec">QUESTS</div>
+        <div class="quests" id="quests"></div>
+        <div class="bottom">
+            <button class="neon pink" onclick="toggleAll(this)">ALLE LÖSUNGEN</button>
+            <button class="neon ghost" onclick="go('home')">STAGE VERLASSEN</button>
+        </div>
+    </section>
+</div>
+<div class="clear-screen" id="clear"><div><h2>STAGE CLEAR!</h2><p>+100 XP<br>JETZT LÖSUNGEN ALS PDF AN DIE LEHRKRAFT SENDEN</p><button class="neon" onclick="$('clear').classList.remove('show')">WEITER</button></div></div>
+<div class="toast" id="toast">STAGE GESPERRT – IM ENTWURF IST NUR 1-1 ROOKIE SPIELBAR</div>
+
+<script>
+    /* ===== Gemeinsame Demo-Daten (Auszug aus dem Lernnavigator) ===== */
+    const m = s => `<span class="math">${s}</span>`;
+    const DATA = {
+        bpes: [
+            { id: "bpe1", nr: 1, title: "Termumformungen", desc: "Variablen, Rechengesetze, Potenzen & Binome", icon: "🧮",
+              lfs: ["Terme aufstellen & einsetzen", "Zusammenfassen von Termen", "Multiplikation von Summen", "Binomische Formeln", "Faktorisieren", "Potenzen"] },
+            { id: "bpe2", nr: 2, title: "Gleichungen", desc: "Lineare & quadratische Gleichungen, Formeln", icon: "⚖️",
+              lfs: ["Mengen und reelle Zahlen", "Lineare Gleichungen", "Formeln umstellen", "Bruchgleichungen", "Reinquadratische Gleichungen", "Gemischtquadratische Gl."] },
+            { id: "bpe3", nr: 3, title: "Geometrie", desc: "Pythagoras, Ähnlichkeit, Trigonometrie & Körper", icon: "📐",
+              lfs: ["Satz des Pythagoras & Thales", "Ähnlichkeit", "Kongruenz & Symmetrien", "Strahlensätze", "Trigonometrie", "Körper"] }
+        ],
+        levels: [
+            { id: "A", name: "Rookie", icon: "🟢", nr: 1, sub: "Grundlagen" },
+            { id: "B", name: "Pro", icon: "🟠", nr: 2, sub: "Vertiefung" },
+            { id: "C", name: "Legend", icon: "🔴", nr: 3, sub: "Transfer" }
+        ],
+        rules: [
+            "Wähle das aktuelle Thema und starte <b>immer im Modus Rookie</b>. Arbeite selbstständig.",
+            "Löse alle 5 Aufgaben (z.B. in GoodNotes) und sende deine Lösungswege als PDF an die Lehrkraft.",
+            "Bearbeite in der Wartezeit die Modi Pro und Legend. Bist du in Rookie noch unsicher, arbeite lieber an einem anderen Fach.",
+            "Gibt die Lehrkraft das „OK“, ist das Level geschafft und wird im Raster grün markiert.",
+            "Rookie nicht geschafft? Suche aktiv Kontakt zur Lehrkraft – das Thema läuft weiter, bis Rookie sitzt.",
+            "Nach Pro oder Legend entscheidest du (ggf. mit deiner Lernberatung), was du als Nächstes übst."
+        ],
+        task: {
+            bpe: "BPE 1", lfs: "Terme aufstellen & einsetzen", level: "A",
+            desc: "Werte in vorgegebene Terme einsetzen.",
+            example: { q: `Berechne den Wert des Terms ${m("2x + 5")} für ${m("x = 3")}.`,
+                steps: [`Setze für x die Zahl 3 ein: ${m("2 · 3 + 5")}`, `Beachte Punkt-vor-Strich: ${m("6 + 5 = 11")}`] },
+            exercises: [
+                { q: `Berechne den Wert des Terms ${m("3a − 2")} für ${m("a = 4")}.`, a: "10" },
+                { q: `Berechne den Wert des Terms ${m("10 − y")} für ${m("y = −2")}.`, a: "12" },
+                { q: `Berechne den Wert des Terms ${m("x² − 5")} für ${m("x = 5")}.`, a: "20" },
+                { q: `Berechne den Wert des Terms ${m("2u + 3v")} für ${m("u = 2")} und ${m("v = 3")}.`, a: "13" },
+                { q: `Berechne den Wert des Terms ${m("0,5z + 4")} für ${m("z = 8")}.`, a: "8" }
+            ]
+        }
+    };
+    const isDemo = (bpeIdx, lfsIdx, lvl) => bpeIdx === 0 && lfsIdx === 0 && lvl === "A";
+
+    const $ = id => document.getElementById(id);
+    const WCOL = ["var(--cyan)", "var(--pink)", "var(--gold)"];
+    const DNAME = { A: "ROOKIE", B: "PRO", C: "LEGEND" };
+    let sel = 0;
+
+    function go(view) { document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === view)); window.scrollTo(0, 0); }
+    function toast() { const t = $('toast'); t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2400); }
+
+    $('legend').innerHTML = DATA.levels.map(l => `<span class="diff-tag" style="color:var(--lvl-${l.id})">LV${l.nr} · ${DNAME[l.id]}</span>`).join('');
+    $('rules').innerHTML = DATA.rules.map(r => `<li>${r}</li>`).join('');
+    setTimeout(() => $('xp-top').style.width = '35%', 50);
+
+    function renderMenu() {
+        $('worlds').innerHTML = DATA.bpes.map((b, i) => `
+            <button class="world ${i === sel ? 'sel' : ''}" style="--c:${WCOL[i]}" onclick="sel=${i};renderMenu()">
+                <div class="world-nr">WORLD ${b.nr} · BPE ${b.nr}</div><h3>${b.title.toUpperCase()}</h3><p>${b.desc}</p><div class="big">${b.icon}</div>
+            </button>`).join('');
+        $('stage-title').textContent = `STAGE SELECT · WORLD ${sel + 1}`;
+        $('stages').innerHTML = DATA.bpes[sel].lfs.map((l, li) => `
+            <div class="stage"><div class="stage-nr">STAGE ${sel + 1}-${li + 1}</div><div class="stage-name">${l}</div>
+            <div class="diffs">${DATA.levels.map(v => `<button class="diff ${isDemo(sel, li, v.id) ? 'live' : ''}" style="color:var(--lvl-${v.id})" onclick="${isDemo(sel, li, v.id) ? "go('tasks')" : 'toast()'}">${DNAME[v.id]}</button>`).join('')}</div></div>`).join('');
+    }
+    renderMenu();
+
+    const T = DATA.task;
+    $('t-title').textContent = T.lfs.toUpperCase(); $('t-desc').textContent = T.desc;
+    $('ex-q').innerHTML = T.example.q;
+    $('ex-steps').innerHTML = T.example.steps.map(s => `<li>${s}</li>`).join('');
+    $('quests').innerHTML = T.exercises.map((e, i) => `
+        <div class="quest" id="q${i}">
+            <div class="q-nr">QUEST ${i + 1}<small>+20 XP</small></div>
+            <div><div class="q">${e.q}</div><div class="loot">▶ LÖSUNG: ${e.a}</div></div>
+            <div class="q-actions"><button class="small" onclick="this.closest('.quest').querySelector('.loot').classList.toggle('open')">LÖSUNG</button><button class="small ok" onclick="clearQ(${i})">✔ CLEAR</button></div>
+        </div>`).join('');
+
+    function toggleSteps(btn) { const s = $('ex-steps'); s.classList.toggle('open'); btn.textContent = s.classList.contains('open') ? 'WALKTHROUGH AUSBLENDEN' : 'WALKTHROUGH ANZEIGEN'; }
+    function toggleAll(btn) { const all = document.querySelectorAll('.loot'); const open = ![...all].every(a => a.classList.contains('open')); all.forEach(a => a.classList.toggle('open', open)); btn.textContent = open ? 'LÖSUNGEN AUSBLENDEN' : 'ALLE LÖSUNGEN'; }
+    function clearQ(i) {
+        $('q' + i).classList.toggle('clear');
+        const n = document.querySelectorAll('.quest.clear').length;
+        $('sxp').style.width = n * 20 + '%'; $('sxp-txt').textContent = `${n * 20} / 100`;
+        $('xp-top').style.width = (35 + n * 2) + '%'; $('xp-txt').textContent = `${350 + n * 20} / 1000`;
+        if (n === 5) $('clear').classList.add('show');
+    }
+</script>
+</body>
+</html>
