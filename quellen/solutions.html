@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lösungen für Moodle – Mathe Lernnavigator AVdual</title>
+<style>
+    /* Nur für Lehrkräfte: Lösungen je Level, z.B. als PDF drucken und in Moodle als Feedback nach der Einreichung hinterlegen. */
+    :root { --ink: #1c1838; --muted: #6b6690; --line: #e3e0f0; --accent: #7c3aed; --A: #3f9c12; --B: #c47a00; --C: #d4234f; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: #f6f5fb; line-height: 1.55; }
+    .bar { position: sticky; top: 0; background: #fff; border-bottom: 1px solid var(--line); padding: 14px 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; z-index: 2; }
+    .bar h1 { font-size: 1.1rem; margin-right: auto; }
+    .bar h1 small { display: block; font-weight: 400; color: var(--muted); font-size: .85rem; }
+    select, button { font: inherit; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+    button { background: var(--accent); color: #fff; border-color: var(--accent); cursor: pointer; font-weight: 600; }
+    button.sec { background: #fff; color: var(--accent); }
+    main { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+    .hint { background: #fff8e1; border: 1px solid #f3d27a; border-radius: 10px; padding: 12px 16px; margin-bottom: 22px; font-size: .95rem; }
+    section.lvl { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 22px 24px; margin-bottom: 18px; }
+    section.lvl header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; border-bottom: 2px solid var(--c); padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    section.lvl h2 { font-size: 1.2rem; }
+    section.lvl h2 small { display: block; font-size: .85rem; color: var(--muted); font-weight: 500; }
+    .badge { font-weight: 800; letter-spacing: .08em; color: #fff; background: var(--c); border-radius: 999px; padding: 3px 12px; font-size: .8rem; white-space: nowrap; }
+    ol.sol { list-style: none; counter-reset: a; }
+    ol.sol li { padding: 10px 0 10px 44px; border-top: 1px dashed var(--line); position: relative; }
+    ol.sol li:first-child { border-top: 0; }
+    ol.sol li::before { counter-increment: a; content: counter(a); position: absolute; left: 0; top: 10px; width: 28px; height: 28px; border-radius: 50%; background: var(--c); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: .9rem; }
+    .q { color: var(--muted); font-size: .92rem; }
+    .a { font-weight: 600; margin-top: 2px; }
+    .a::before { content: "Lösung: "; color: var(--c); }
+    .foot { color: var(--muted); font-size: .85rem; margin-top: 12px; }
+    .math { font-family: "Cambria Math", "Times New Roman", serif; font-size: 1.08em; white-space: nowrap; }
+    .q .math { color: var(--ink); }
+    @media print {
+        body { background: #fff; }
+        .bar, .hint { display: none; }
+        main { padding: 0; max-width: none; }
+        section.lvl { border: 0; padding: 0; break-after: page; }
+        section.lvl.hidden-print { display: none; }
+    }
+</style>
+</head>
+<body>
+<div class="bar">
+    <h1>Lösungen zum Mathe-Lernnavigator<small>Nur für Lehrkräfte – nicht an Schüler:innen weitergeben</small></h1>
+    <select id="f-bpe"></select>
+    <select id="f-lvl"><option value="">alle Level</option><option value="A">Rookie</option><option value="B">Pro</option><option value="C">Legend</option></select>
+    <button onclick="window.print()">Auswahl drucken / als PDF</button>
+</div>
+<main>
+    <div class="hint"><b>So geht's:</b> Wähle oben Thema und Level. Jedes Level wird beim Drucken auf eine eigene Seite gesetzt. Hinterlege die PDF-Datei in der passenden Moodle-Aufgabe so, dass sie erst <b>nach der Einreichung</b> sichtbar wird, z.B. über eine Voraussetzung („Aufgabe abgegeben“) oder als Feedback-Datei.</div>
+    <div id="list"></div>
+</main>
+<script>
+/*DATA*/
+    const COLORS = { A: "var(--A)", B: "var(--B)", C: "var(--C)" }, NAMES = { A: "ROOKIE", B: "PRO", C: "LEGEND" };
+    const fb = document.getElementById("f-bpe"), fl = document.getElementById("f-lvl");
+    fb.innerHTML = `<option value="">alle Themen</option>` + SOL.bpes.map(b => `<optgroup label="BPE ${b.nr}: ${b.name}">${SOL.lfs[b.id].map((l, i) => `<option value="${l.id}">${b.nr}.${i + 1} ${l.title}</option>`).join("")}</optgroup>`).join("");
+    function render() {
+        const out = [];
+        SOL.bpes.forEach(b => SOL.lfs[b.id].forEach((l, i) => ["A", "B", "C"].forEach(v => {
+            if (fb.value && fb.value !== l.id) return; if (fl.value && fl.value !== v) return;
+            const t = SOL.tasks[`${l.id}_${v}`];
+            out.push(`<section class="lvl" style="--c:${COLORS[v]}"><header><h2>${b.nr}.${i + 1} ${l.title}<small>BPE ${b.nr}: ${b.name} · Mathe-Lernnavigator AVdual</small></h2><span class="badge">LEVEL ${"ABC".indexOf(v) + 1} · ${NAMES[v]}</span></header>
+                <ol class="sol">${t.map(e => `<li><div class="q">${e.q}</div><div class="a">${e.a}</div></li>`).join("")}</ol>
+                <p class="foot">Kontrolliere deine Lösungen und markiere im Lernnavigator alle richtig gelösten Aufgaben. Ab 4 von 5 richtigen Aufgaben ist das Level geschafft – sonst bitte deine Mathelehrkraft um Hilfe.</p></section>`);
+        })));
+        document.getElementById("list").innerHTML = out.join("");
+    }
+    fb.onchange = fl.onchange = render; render();
+</script>
+</body>
+</html>

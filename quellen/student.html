@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mathe Lernnavigator – AVdual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --bg: #07051a; --panel: rgba(20,14,48,0.86); --panel-2: #1a1240; --edge: #3a2a7a;
+        --cyan: #22f3ff; --pink: #ff2bd6; --lime: #b6ff3b; --gold: #ffe14d; --amber: #ffb42b; --red: #ff3b6b;
+        --text: #eae6ff; --muted: #9b92c9; --halo: #130d2e;
+        --lvl-A: #b6ff3b; --lvl-B: #ffb42b; --lvl-C: #ff3b6b;
+        --hud: "Orbitron", "Rajdhani", sans-serif; --font: "Rajdhani", system-ui, -apple-system, "Segoe UI", sans-serif; --pixel: "Press Start 2P", ui-monospace, monospace;
+        --cut: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+        --cut-s: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { overflow-x: clip; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 18px; line-height: 1.5; min-height: 100vh; }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { border: 0; background: none; cursor: pointer; }
+    button:disabled { cursor: not-allowed; }
+
+    /* Hintergrund: Neon-Gitterboden + Scanlines */
+    .bg { position: fixed; inset: 0; z-index: -2; background: radial-gradient(ellipse at 50% -10%, #3b1a8a 0%, transparent 60%), radial-gradient(ellipse at 100% 100%, rgba(255,43,214,.22), transparent 50%), var(--bg); }
+    .grid { position: fixed; left: -50%; right: -50%; bottom: -10%; height: 55vh; z-index: -1; background-image: linear-gradient(rgba(34,243,255,.3) 1px, transparent 1px), linear-gradient(90deg, rgba(34,243,255,.3) 1px, transparent 1px); background-size: 60px 60px; transform: perspective(400px) rotateX(62deg); transform-origin: bottom; -webkit-mask-image: linear-gradient(transparent, #000 70%); mask-image: linear-gradient(transparent, #000 70%); animation: run 3s linear infinite; }
+    @keyframes run { to { background-position: 0 60px; } }
+    body::after { content: ""; position: fixed; inset: 0; pointer-events: none; background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.16) 2px 4px); z-index: 50; }
+    @media (prefers-reduced-motion: reduce) { .grid, .diff.open, .press, .cell.open { animation: none !important; } }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+    /* HUD-Leiste */
+    .hud { display: flex; justify-content: space-between; align-items: center; padding: 18px 0; gap: 14px; flex-wrap: wrap; }
+    .logo { font-family: var(--hud); font-weight: 900; font-size: 1.15rem; letter-spacing: .12em; text-shadow: 0 0 12px var(--cyan); cursor: pointer; }
+    .logo span { color: var(--pink); text-shadow: 0 0 12px var(--pink); }
+    .hud-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .player { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--edge); padding: 8px 14px; clip-path: var(--cut); }
+    .avatar { width: 38px; height: 38px; background: linear-gradient(135deg, var(--cyan), var(--pink)); clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); display: grid; place-items: center; font-family: var(--pixel); font-size: 9px; color: #07051a; flex-shrink: 0; }
+    .pname { font-family: var(--hud); font-weight: 800; font-size: .8rem; letter-spacing: .08em; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .xp-label { font-family: var(--pixel); font-size: 8px; color: var(--muted); display: flex; justify-content: space-between; gap: 14px; margin: 4px 0; }
+    .xp { width: 170px; height: 9px; background: #120c2e; border: 1px solid var(--edge); position: relative; overflow: hidden; }
+    .xp i { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, var(--cyan), var(--lime)); box-shadow: 0 0 10px var(--cyan); transition: width .6s cubic-bezier(.2,1.3,.4,1); }
+    .save-btn { font-family: var(--hud); font-weight: 800; font-size: .72rem; letter-spacing: .1em; padding: 14px 14px; border: 1px solid var(--edge); background: var(--panel); clip-path: var(--cut); color: var(--cyan); }
+    .save-btn:hover { border-color: var(--cyan); }
+
+    .storage-note { display: none; background: rgba(255,180,43,.12); border: 1px solid var(--amber); color: var(--gold); padding: 10px 14px; margin-bottom: 14px; font-size: 1rem; clip-path: var(--cut-s); }
+    .storage-note.show { display: block; }
+
+    .view { display: none; padding: 10px 0 90px; }
+    .view.active { display: block; animation: fade .35s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px); } }
+
+    /* Startbildschirm */
+    .title-screen { text-align: center; padding: 26px 0 22px; }
+    .press { font-family: var(--pixel); font-size: 11px; color: var(--gold); letter-spacing: .15em; animation: blink 1.2s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+    .title-screen h1 { font-family: var(--hud); font-weight: 900; font-size: clamp(2.1rem, 7vw, 4.4rem); line-height: 1; margin: 14px 0; letter-spacing: .04em; background: linear-gradient(180deg, #fff 20%, var(--cyan) 55%, var(--pink)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 18px rgba(34,243,255,.45)); }
+    .title-screen p { color: var(--muted); font-size: 1.15rem; }
+    .diff-legend { display: flex; justify-content: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+    .diff-tag { font-family: var(--hud); font-weight: 800; font-size: .78rem; letter-spacing: .12em; padding: 6px 14px; border: 1px solid currentColor; clip-path: var(--cut-s); background: rgba(0,0,0,.3); display: inline-block; }
+
+    /* Aufklappbare Boxen (Spielregeln, Raster) */
+    details.box { background: var(--panel); border: 1px solid var(--edge); clip-path: var(--cut); margin-bottom: 14px; }
+    details.box summary { list-style: none; cursor: pointer; padding: 16px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-family: var(--hud); font-weight: 800; letter-spacing: .12em; color: var(--cyan); font-size: .95rem; }
+    details.box summary::-webkit-details-marker { display: none; }
+    details.box summary small { font-family: var(--pixel); font-size: 8px; color: var(--pink); letter-spacing: .08em; margin-left: auto; }
+    details.box summary::after { content: "+"; font-family: var(--pixel); font-size: 12px; color: var(--muted); }
+    details.box[open] summary::after { content: "–"; }
+    .box-body { padding: 0 22px 20px; }
+    .rules { list-style: none; counter-reset: r; display: grid; gap: 8px; }
+    .rules li { position: relative; padding-left: 38px; color: #d6d0f7; font-size: 1.05rem; }
+    .rules li::before { counter-increment: r; content: "0" counter(r); position: absolute; left: 0; top: 3px; font-family: var(--pixel); font-size: 10px; color: var(--lime); }
+    .rules b { color: var(--gold); font-weight: 700; }
+
+    .raster { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .raster h4 { font-family: var(--pixel); font-size: 9px; color: var(--muted); margin-bottom: 8px; font-weight: normal; }
+    .r-row { display: grid; grid-template-columns: 1fr repeat(3, 30px); gap: 5px; align-items: center; margin-bottom: 5px; }
+    .r-row span { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cfc8f5; }
+    .cell { height: 22px; border: 1px solid var(--edge); background: #0f0a26; clip-path: var(--cut-s); font-family: var(--pixel); font-size: 7px; display: grid; place-items: center; color: #07051a; }
+    .cell.open { border-color: var(--cyan); background: rgba(34,243,255,.15); color: var(--cyan); animation: pulse 1.6s ease-in-out infinite; box-shadow: 0 0 8px var(--cyan); }
+    .cell.ok { background: var(--lime); border-color: var(--lime); }
+    .cell.help { background: var(--amber); border-color: var(--amber); }
+    .cell.locked { color: #3a2a7a; }
+    .r-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px; font-size: .95rem; color: var(--muted); }
+    .r-legend i { display: inline-block; width: 18px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--edge); }
+
+    .sec { font-family: var(--hud); font-weight: 800; letter-spacing: .2em; font-size: 1rem; color: var(--cyan); margin: 28px 0 14px; display: flex; align-items: center; gap: 12px; }
+    .sec::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--cyan), transparent); }
+
+    /* Welten als Aufklappliste */
+    .world-block { margin-bottom: 14px; }
+    .world { position: relative; width: 100%; text-align: left; padding: 18px 22px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; background: linear-gradient(160deg, var(--panel-2), rgba(10,6,30,.92)); clip-path: var(--cut); transition: transform .2s; overflow: hidden; }
+    .world::before { content: ""; position: absolute; inset: 0; border: 2px solid var(--edge); clip-path: var(--cut); pointer-events: none; }
+    .world:hover { transform: translateY(-2px); }
+    .world-block.open .world { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 30%, #1a1240), #0a061e); }
+    .world-block.open .world::before { border-color: var(--c); box-shadow: inset 0 0 24px var(--c); }
+    .world-nr { font-family: var(--pixel); font-size: 9px; color: var(--c); }
+    .world h3 { font-family: var(--hud); font-weight: 900; font-size: 1.35rem; margin: 8px 0 2px; letter-spacing: .03em; }
+    .world p { color: var(--muted); font-size: 1rem; }
+    .world .big { position: absolute; right: 90px; bottom: -14px; font-size: 4.4rem; opacity: .18; transform: rotate(-12deg); pointer-events: none; }
+    .w-meta { text-align: right; position: relative; }
+    .w-count { font-family: var(--pixel); font-size: 10px; color: var(--lime); }
+    .w-bar { width: 120px; height: 6px; background: #120c2e; border: 1px solid var(--edge); margin: 8px 0 6px auto; overflow: hidden; }
+    .w-bar i { display: block; height: 100%; background: var(--lime); box-shadow: 0 0 8px var(--lime); }
+    .chev { font-family: var(--pixel); font-size: 12px; color: var(--c); display: inline-block; transition: transform .2s; }
+    .world-block.open .chev { transform: rotate(90deg); }
+    .stages { display: none; padding: 10px 0 4px 26px; border-left: 2px solid var(--c); margin: 4px 0 0 18px; }
+    .world-block.open .stages { display: grid; gap: 10px; animation: fade .3s ease; }
+    .stage { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--edge); padding: 12px 16px; clip-path: var(--cut); scroll-margin-top: 120px; }
+    .stage.flash { border-color: var(--cyan); box-shadow: inset 0 0 18px rgba(34,243,255,.35); }
+    .stage-nr { font-family: var(--pixel); font-size: 9px; color: var(--muted); white-space: nowrap; }
+    .stage-name { font-weight: 700; font-size: 1.12rem; }
+    .stage-name small { display: block; font-weight: 500; color: var(--muted); font-size: .95rem; }
+    .diffs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .diff { font-family: var(--hud); font-weight: 800; font-size: .7rem; letter-spacing: .1em; padding: 9px 12px; border: 1px solid currentColor; clip-path: var(--cut-s); transition: all .15s; min-width: 92px; text-align: center; white-space: nowrap; }
+    .diff.locked { color: #5d5294 !important; border-color: #3a2a7a; opacity: .7; }
+    .diff.open { background: color-mix(in srgb, currentColor 16%, transparent); box-shadow: 0 0 14px currentColor; animation: pulse 1.6s ease-in-out infinite; }
+    .diff.ok { background: var(--lime); border-color: var(--lime); color: #07051a !important; }
+    .diff.help { background: var(--amber); border-color: var(--amber); color: #07051a !important; }
+    .diff:not(.locked):hover { filter: brightness(1.2); transform: translateY(-1px); }
+    @keyframes pulse { 50% { box-shadow: 0 0 3px currentColor; } }
+
+    /* Aufgabenseite */
+    .back { font-family: var(--pixel); font-size: 9px; color: var(--muted); margin: 6px 0 14px; display: inline-block; }
+    .back:hover { color: var(--cyan); }
+    .quest-head { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: end; background: var(--panel); border: 1px solid var(--edge); clip-path: var(--cut); padding: 22px 24px; margin-bottom: 22px; }
+    .stage-tag { font-family: var(--pixel); font-size: 9px; color: var(--pink); }
+    .quest-head h1 { font-family: var(--hud); font-weight: 900; font-size: clamp(1.4rem, 4vw, 2.2rem); margin: 8px 0 4px; line-height: 1.15; }
+    .quest-head p { color: var(--muted); }
+    .q-status { text-align: right; }
+    .q-status .state { font-family: var(--pixel); font-size: 9px; margin-top: 10px; line-height: 1.8; }
+
+    .tutorial { border: 1px dashed var(--cyan); background: rgba(34,243,255,.06); padding: 20px 22px; margin-bottom: 26px; clip-path: var(--cut); }
+    .lbl { font-family: var(--pixel); font-size: 9px; color: var(--cyan); margin-bottom: 10px; }
+    .tutorial .q { font-size: 1.2rem; font-weight: 600; margin-bottom: 14px; }
+    .neon { font-family: var(--hud); font-weight: 800; letter-spacing: .1em; font-size: .78rem; padding: 12px 18px; color: #07051a; background: var(--cyan); clip-path: var(--cut-s); box-shadow: 0 0 18px rgba(34,243,255,.5); transition: transform .1s, filter .15s, opacity .15s; }
+    .neon:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+    .neon:disabled { opacity: .35; box-shadow: none; }
+    .neon.pink { background: var(--pink); box-shadow: 0 0 18px rgba(255,43,214,.5); }
+    .neon.lime { background: var(--lime); box-shadow: 0 0 18px rgba(182,255,59,.45); }
+    .neon.ghost { background: transparent; color: var(--cyan); border: 1px solid var(--cyan); box-shadow: none; }
+    .neon.danger { background: transparent; color: var(--red); border: 1px solid var(--red); box-shadow: none; }
+    .steps { display: none; margin-top: 16px; list-style: none; }
+    .steps.open { display: block; }
+    .steps li { padding: 8px 0 8px 34px; position: relative; border-left: 2px solid var(--edge); margin-left: 10px; color: #d6d0f7; }
+    .steps li::before { content: "▶"; position: absolute; left: -9px; top: 9px; color: var(--cyan); font-size: .8rem; background: var(--bg); }
+
+    .quests { display: grid; gap: 14px; }
+    .quest { display: grid; grid-template-columns: 96px 1fr auto; gap: 16px; align-items: start; background: var(--panel); border: 1px solid var(--edge); padding: 16px 18px; clip-path: var(--cut); transition: border-color .2s, background .2s; }
+    .quest.correct { border-color: var(--lime); background: linear-gradient(90deg, rgba(182,255,59,.12), var(--panel)); }
+    .q-nr { font-family: var(--pixel); font-size: 10px; color: var(--gold); line-height: 1.9; padding-top: 4px; }
+    .q-nr small { display: block; color: var(--muted); font-size: 7px; }
+    .quest .q { font-size: 1.15rem; font-weight: 600; }
+    .tag { display: inline-block; font-family: var(--pixel); font-size: 7px; padding: 4px 7px; border: 1px solid currentColor; margin-bottom: 8px; letter-spacing: .05em; }
+    .mark { display: none; font-family: var(--hud); font-weight: 800; font-size: .66rem; letter-spacing: .1em; padding: 10px 12px; border: 1px solid var(--edge); clip-path: var(--cut-s); color: var(--muted); white-space: nowrap; }
+    .checking .mark { display: inline-block; }
+    .mark:hover { color: var(--text); border-color: var(--text); }
+    .quest.correct .mark { color: #07051a; background: var(--lime); border-color: var(--lime); }
+
+    .task-image { margin: 12px 0 4px; text-align: center; background: rgba(0,0,0,.28); padding: 12px; border: 1px solid rgba(58,42,122,.6); }
+    .task-image svg { max-width: 100%; height: auto; max-height: 230px; }
+    .svg-text { stroke: none; font-family: sans-serif; font-size: 13px; font-weight: bold; }
+    .svg-bg { fill: var(--halo); }
+    .svg-lbl { font-family: sans-serif; font-weight: bold; stroke: var(--halo); stroke-width: 4px; paint-order: stroke; stroke-linejoin: round; }
+    .svg-note { font-family: sans-serif; font-style: italic; stroke: none; }
+
+    /* Abschluss / Selbstkontrolle */
+    .finish { margin-top: 28px; background: var(--panel); border: 1px solid var(--pink); clip-path: var(--cut); padding: 22px 24px; }
+    .finish h2 { font-family: var(--hud); font-weight: 900; letter-spacing: .1em; font-size: 1.15rem; color: var(--pink); margin-bottom: 14px; }
+    .flow { list-style: none; display: grid; gap: 10px; margin-bottom: 18px; }
+    .flow li { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start; color: #d6d0f7; }
+    .flow li b { color: var(--gold); }
+    .flow .n { font-family: var(--pixel); font-size: 10px; color: #07051a; background: var(--cyan); width: 26px; height: 26px; display: grid; place-items: center; clip-path: var(--cut-s); }
+    .confirm { display: flex; gap: 12px; align-items: flex-start; background: rgba(34,243,255,.07); border: 1px dashed var(--cyan); padding: 14px 16px; cursor: pointer; margin-bottom: 16px; font-weight: 600; }
+    .confirm input { width: 22px; height: 22px; accent-color: var(--lime); margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+    .counter { font-family: var(--pixel); font-size: 10px; color: var(--muted); margin-bottom: 14px; line-height: 1.8; }
+    .counter b { color: var(--lime); font-weight: normal; }
+    .finish-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .result { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; margin-bottom: 16px; }
+    .result .score { font-family: var(--hud); font-weight: 900; font-size: 2.4rem; line-height: 1; }
+    .result.ok .score { color: var(--lime); text-shadow: 0 0 16px var(--lime); }
+    .result.help .score { color: var(--amber); text-shadow: 0 0 16px var(--amber); }
+    .result p { color: #d6d0f7; }
+
+    /* Overlays */
+    .overlay { position: fixed; inset: 0; background: rgba(7,5,26,.88); display: none; place-items: center; z-index: 40; padding: 20px; }
+    .overlay.show { display: grid; animation: fade .3s; }
+    .ov-card { max-width: 560px; width: 100%; background: var(--panel-2); border: 1px solid var(--edge); clip-path: var(--cut); padding: 28px 26px; text-align: center; max-height: 90vh; overflow: auto; }
+    .ov-card h2 { font-family: var(--hud); font-weight: 900; font-size: clamp(1.7rem, 7vw, 3rem); line-height: 1.1; }
+    .ov-card.ok h2 { color: var(--lime); text-shadow: 0 0 24px var(--lime); }
+    .ov-card.help h2 { color: var(--amber); text-shadow: 0 0 24px var(--amber); }
+    .ov-card .pix { font-family: var(--pixel); font-size: 10px; color: var(--gold); margin: 14px 0; line-height: 2; }
+    .ov-card p { color: #d6d0f7; margin-bottom: 18px; }
+    .ov-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    .save-card { text-align: left; }
+    .save-card h2 { font-size: 1.5rem; color: var(--cyan); text-shadow: 0 0 14px var(--cyan); margin-bottom: 6px; }
+    .save-card h3 { font-family: var(--hud); font-size: .85rem; letter-spacing: .12em; color: var(--pink); margin: 18px 0 8px; }
+    .save-card p { margin-bottom: 8px; font-size: 1rem; color: var(--muted); }
+    .field { width: 100%; background: #0d0824; border: 1px solid var(--edge); padding: 10px 12px; color: var(--text); }
+    .field:focus { outline: 1px solid var(--cyan); }
+    textarea.field { font-family: ui-monospace, monospace; font-size: .8rem; height: 70px; resize: vertical; word-break: break-all; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+
+    .math { font-family: "Cambria Math", "Times New Roman", serif; font-size: 1.12em; color: #fff; text-shadow: 0 0 8px rgba(34,243,255,.55); white-space: nowrap; padding: 0 3px; }
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(30px); font-family: var(--pixel); font-size: 9px; line-height: 1.9; background: #120c2e; border: 1px solid var(--pink); color: var(--pink); padding: 12px 16px; opacity: 0; transition: all .25s; pointer-events: none; text-align: center; max-width: 92vw; z-index: 60; }
+    .toast.show { opacity: 1; transform: translateX(-50%); }
+
+    @media (max-width: 820px) {
+        body { font-size: 17px; }
+        .raster { grid-template-columns: 1fr; }
+        .stages { padding-left: 12px; margin-left: 6px; }
+        .stage, .quest { grid-template-columns: 1fr; gap: 8px; }
+        .quest-head { grid-template-columns: 1fr; }
+        .q-status { text-align: left; }
+        .world .big { right: 10px; }
+        .w-bar { width: 80px; }
+        .xp { width: 110px; }
+        .diff { min-width: 0; flex: 1; }
+        .math { white-space: normal; }
+    }
+</style>
+</head>
+<body>
+<div class="bg"></div><div class="grid"></div>
+<div class="wrap">
+    <div class="hud">
+        <div class="logo" onclick="goHome()">MATHE<span>//</span>QUEST</div>
+        <div class="hud-right">
+            <div class="player">
+                <div class="avatar" id="p-lv">LV1</div>
+                <div>
+                    <div class="pname" id="p-name">SPIELER:IN</div>
+                    <div class="xp-label"><span>XP</span><span id="xp-txt">0</span></div>
+                    <div class="xp"><i id="xp-bar"></i></div>
+                </div>
+            </div>
+            <button class="save-btn" onclick="openSave()">💾 SPIELSTAND</button>
+        </div>
+    </div>
+    <div class="storage-note" id="storage-note">⚠ Auf diesem Gerät kann der Spielstand nicht automatisch gespeichert werden. Sichere ihn über <b>💾 SPIELSTAND</b> als Code oder Datei.</div>
+
+    <!-- STARTSEITE -->
+    <section class="view active" id="home">
+        <div class="title-screen">
+            <div class="press">▶ PRESS START</div>
+            <h1>LERN&shy;NAVIGATOR</h1>
+            <p>AVdual · Mathematik · Offene Lernzeit – wähle deine Welt und schalte alle Level frei.</p>
+            <div class="diff-legend" id="legend"></div>
+        </div>
+
+        <details class="box" id="rules-box">
+            <summary>SPIELREGELN <small>MISSION BRIEFING</small></summary>
+            <div class="box-body"><ol class="rules" id="rules"></ol></div>
+        </details>
+
+        <details class="box" id="raster-box" open>
+            <summary>FORTSCHRITTS-RASTER <small id="raster-sum"></small></summary>
+            <div class="box-body">
+                <div class="raster" id="raster"></div>
+                <div class="r-legend">
+                    <span><i style="background:var(--lime);border-color:var(--lime)"></i>geschafft (4–5 richtig)</span>
+                    <span><i style="background:var(--amber);border-color:var(--amber)"></i>abgeschlossen, Hilfe holen</span>
+                    <span><i style="background:rgba(34,243,255,.15);border-color:var(--cyan)"></i>freigeschaltet</span>
+                    <span><i></i>gesperrt</span>
+                </div>
+            </div>
+        </details>
+
+        <div class="sec">WORLD SELECT</div>
+        <div id="worlds"></div>
+    </section>
+
+    <!-- AUFGABEN -->
+    <section class="view" id="tasks">
+        <button class="back" onclick="goHome(true)">◀ ZURÜCK ZUR ÜBERSICHT</button>
+        <div class="quest-head">
+            <div>
+                <div class="stage-tag" id="t-tag"></div>
+                <h1 id="t-title"></h1>
+                <p id="t-desc"></p>
+            </div>
+            <div class="q-status">
+                <span class="diff-tag" id="t-diff"></span>
+                <div class="state" id="t-state"></div>
+            </div>
+        </div>
+        <div class="tutorial">
+            <div class="lbl">◆ TUTORIAL · ANGELEITETES BEISPIEL</div>
+            <div class="q" id="ex-q"></div>
+            <div id="ex-img"></div>
+            <button class="neon ghost" id="btn-steps" onclick="toggleSteps()">LÖSUNGSWEG DES BEISPIELS ANZEIGEN</button>
+            <ol class="steps" id="ex-steps"></ol>
+        </div>
+        <div class="sec" style="margin-top:0">QUESTS</div>
+        <div class="quests" id="quests"></div>
+        <div class="finish" id="finish"></div>
+    </section>
+</div>
+
+<!-- Ergebnis-Overlay -->
+<div class="overlay" id="ov-result"><div class="ov-card" id="ov-card"></div></div>
+
+<!-- Spielstand-Overlay -->
+<div class="overlay" id="ov-save" onclick="if (event.target === this) closeSave()">
+    <div class="ov-card save-card">
+        <h2>💾 SPIELSTAND</h2>
+        <p id="save-info"></p>
+        <h3>DEIN NAME</h3>
+        <input class="field" id="in-name" maxlength="40" placeholder="Vorname (für Lehrkraft und Sicherung)" oninput="setName(this.value)">
+        <h3>SICHERN</h3>
+        <p>Kopiere den Spielstand-Code (z.B. in eine Notiz in GoodNotes) oder speichere ihn als Datei – so kannst du auf jedem Gerät weiterspielen.</p>
+        <textarea class="field" id="out-code" readonly onclick="this.select()"></textarea>
+        <div class="row"><button class="neon" onclick="copyCode()">CODE KOPIEREN</button><button class="neon ghost" onclick="downloadSave()">ALS DATEI SPEICHERN</button></div>
+        <h3>LADEN</h3>
+        <p>Füge einen Spielstand-Code ein oder wähle eine gespeicherte Datei.</p>
+        <textarea class="field" id="in-code" placeholder="LN1-…"></textarea>
+        <div class="row"><button class="neon pink" onclick="loadCode()">CODE LADEN</button><button class="neon ghost" onclick="document.getElementById('in-file').click()">DATEI LADEN</button><input type="file" id="in-file" accept=".json,.txt,application/json,text/plain" hidden onchange="loadFile(this)"></div>
+        <h3>NEUSTART</h3>
+        <div class="row"><button class="neon danger" onclick="resetSave()">SPIELSTAND ZURÜCKSETZEN</button><button class="neon ghost" style="margin-left:auto" onclick="closeSave()">SCHLIESSEN</button></div>
+    </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/*DATA*/
+
+    /* ================= SPIELSTAND ================= */
+    const STORE_KEY = "avdual-mathe-lernnavigator-v1";
+    const LV = [
+        { id: "A", name: "ROOKIE", nr: 1, sub: "Grundlagen" },
+        { id: "B", name: "PRO", nr: 2, sub: "Vertiefung" },
+        { id: "C", name: "LEGEND", nr: 3, sub: "Transfer" }
+    ];
+    const WCOL = ["var(--cyan)", "var(--pink)", "var(--gold)"];
+    const PASS = 4;              // ab 4 von 5 richtigen Aufgaben gilt ein Level als geschafft
+    const XP_PER_TASK = 20;
+    let save = { v: 1, name: "", levels: {} };
+    let storageOK = true;
+
+    const $ = id => document.getElementById(id);
+    const lvKey = (lfsId, lv) => `${lfsId}_${lv}`;
+    const lvInfo = id => LV.find(l => l.id === id);
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    function sanitize(o) {
+        if (!o || typeof o !== "object" || typeof o.levels !== "object" || o.levels === null) throw new Error("ungültig");
+        const out = { v: 1, name: String(o.name || "").slice(0, 40), levels: {} };
+        for (const [k, val] of Object.entries(o.levels)) {
+            if (!DB.tasks[k] || !val || !val.done) continue;
+            const correct = Array.isArray(val.correct) ? [...new Set(val.correct.filter(i => Number.isInteger(i) && i >= 0 && i < 5))].sort() : [];
+            out.levels[k] = { done: true, correct, date: String(val.date || "").slice(0, 10) };
+        }
+        return out;
+    }
+    function loadLocal() {
+        try { const raw = localStorage.getItem(STORE_KEY); if (raw) save = sanitize(JSON.parse(raw)); return !!raw; }
+        catch (e) { storageOK = false; return false; }
+    }
+    function persist() {
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(save)); storageOK = true; }
+        catch (e) { storageOK = false; }
+        $("storage-note").classList.toggle("show", !storageOK);
+    }
+
+    // Status eines Levels: locked | open | ok | help
+    function status(lfsId, lv) {
+        const r = save.levels[lvKey(lfsId, lv)];
+        if (r) return r.correct.length >= PASS ? "ok" : "help";
+        const i = "ABC".indexOf(lv);
+        return (i === 0 || save.levels[lvKey(lfsId, "ABC"[i - 1])]) ? "open" : "locked";
+    }
+    const totalXP = () => Object.values(save.levels).reduce((s, r) => s + r.correct.length * XP_PER_TASK, 0);
+
+    /* ================= ALLGEMEIN ================= */
+    let state = { view: "home", bpeId: null, lfsId: null, lv: null };
+    const openWorlds = new Set(["bpe1"]);
+
+    function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2800); }
+    function show(view) { document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === view)); state.view = view; }
+    function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+    function fmtDate(iso) { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${d}.${m}.${y}`; }
+
+    function renderHud() {
+        const xp = totalXP(), lvl = 1 + Math.floor(xp / 400);
+        $("p-lv").textContent = "LV" + lvl;
+        $("p-name").textContent = save.name ? save.name.toUpperCase() : "SPIELER:IN";
+        $("xp-txt").textContent = `${xp} · NÄCHSTES LV ${lvl * 400}`;
+        $("xp-bar").style.width = ((xp % 400) / 4) + "%";
+    }
+
+    /* ================= STARTSEITE ================= */
+    const RULES = [
+        "Bearbeite die Themen <b>entsprechend dem Wochenplan</b> im Moodle-Kurs für die Offene Lernzeit. Starte immer mit <b>ROOKIE</b> – PRO und LEGEND schalten sich erst frei, wenn das Level darunter abgeschlossen ist.",
+        "Löse alle 5 Aufgaben des Levels auf einem <b>Blatt in GoodNotes</b>. Das angeleitete Beispiel zeigt dir, wie es geht.",
+        "Reiche deine Lösungen bei der <b>passenden Aufgabe im Moodle-Kurs</b> ein. Direkt nach der Einreichung zeigt dir Moodle automatisch die Lösungen zu deinem Level.",
+        "Kontrolliere deine Lösungen selbstständig und ehrlich. Markiere im Lernnavigator jede Aufgabe, die du <b>richtig</b> gelöst hast, und klicke auf <b>LEVEL ABSCHLIESSEN</b>.",
+        "<b>4 oder 5 Aufgaben richtig:</b> Level geschafft – es wird im Raster grün markiert. <b>Weniger als 4 richtig:</b> Bitte deine Mathelehrkraft um Hilfe (orange Markierung). In beiden Fällen wird das nächste Level freigeschaltet.",
+        "Dein Spielstand wird automatisch auf diesem Gerät gespeichert. Sichere ihn zusätzlich über <b>💾 SPIELSTAND</b> (Code oder Datei), z.B. bevor du das Gerät wechselst.",
+        "Nach PRO oder LEGEND entscheidest du (ggf. mit deiner Lernberatung), ob du ältere Themen vertiefst oder an einem anderen Fach arbeitest."
+    ];
+
+    function renderHome() {
+        renderHud();
+        $("legend").innerHTML = LV.map(l => `<span class="diff-tag" style="color:var(--lvl-${l.id})">LV${l.nr} · ${l.name}</span>`).join("");
+
+        // Raster (Schnellübersicht für Schüler:in und Lehrkraft)
+        let done = 0, okCount = 0;
+        $("raster").innerHTML = DB.bpes.map(b => `<div><h4>WORLD ${b.nr} · ${esc(b.name.toUpperCase())}</h4>${DB.lfs[b.id].map((l, li) => `
+            <div class="r-row"><span title="${esc(l.title)}">${b.nr}.${li + 1} ${esc(l.title)}</span>${LV.map(v => {
+                const st = status(l.id, v.id); if (st === "ok" || st === "help") done++; if (st === "ok") okCount++;
+                const r = save.levels[lvKey(l.id, v.id)];
+                return `<button class="cell ${st}" title="${esc(l.title)} · ${v.name}${r ? ` · ${r.correct.length}/5 richtig` : ""}" onclick="openLevel('${b.id}','${l.id}','${v.id}')">${st === "locked" ? "🔒" : v.name[0]}</button>`;
+            }).join("")}</div>`).join("")}</div>`).join("");
+        $("raster-sum").textContent = `${okCount} GESCHAFFT · ${done} / 54 ABGESCHLOSSEN`;
+
+        // Welten als Aufklappliste
+        $("worlds").innerHTML = DB.bpes.map((b, bi) => {
+            const lfs = DB.lfs[b.id];
+            const ok = lfs.reduce((s, l) => s + LV.filter(v => status(l.id, v.id) === "ok").length, 0);
+            return `<div class="world-block ${openWorlds.has(b.id) ? "open" : ""}" style="--c:${WCOL[bi]}">
+                <button class="world" onclick="toggleWorld('${b.id}')" aria-expanded="${openWorlds.has(b.id)}">
+                    <div><div class="world-nr">WORLD ${b.nr} · BPE ${b.nr}</div><h3>${esc(b.name.toUpperCase())}</h3><p>${esc(b.desc)}</p></div>
+                    <div class="w-meta"><div class="w-count">${ok} / 18 ✔</div><div class="w-bar"><i style="width:${ok / 18 * 100}%"></i></div><span class="chev">▶</span></div>
+                    <div class="big">${b.icon}</div>
+                </button>
+                <div class="stages">${lfs.map((l, li) => `
+                    <div class="stage" id="st-${l.id}">
+                        <div class="stage-nr">STAGE ${b.nr}-${li + 1}</div>
+                        <div class="stage-name">${esc(l.title)}<small>${esc(l.desc)}</small></div>
+                        <div class="diffs">${LV.map(v => diffBtn(b.id, l.id, v)).join("")}</div>
+                    </div>`).join("")}
+                </div>
+            </div>`;
+        }).join("");
+    }
+    function diffBtn(bpeId, lfsId, v) {
+        const st = status(lfsId, v.id), r = save.levels[lvKey(lfsId, v.id)];
+        const label = st === "locked" ? `🔒 ${v.name}` : st === "ok" ? `✔ ${v.name} ${r.correct.length}/5` : st === "help" ? `! ${v.name} ${r.correct.length}/5` : `▶ ${v.name}`;
+        return `<button class="diff ${st}" style="color:var(--lvl-${v.id})" onclick="openLevel('${bpeId}','${lfsId}','${v.id}')">${label}</button>`;
+    }
+    function toggleWorld(id) { openWorlds.has(id) ? openWorlds.delete(id) : openWorlds.add(id); renderHome(); }
+
+    function goHome(focusStage) {
+        show("home"); renderHome();
+        if (focusStage && state.lfsId) {
+            openWorlds.add(state.bpeId); renderHome();
+            const el = $("st-" + state.lfsId);
+            if (el) { el.scrollIntoView({ block: "center" }); el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1500); }
+        } else window.scrollTo(0, 0);
+    }
+
+    /* ================= AUFGABENSEITE ================= */
+    let checking = false, marks = new Set();
+    const TAGS = { tf: ["WAHR / FALSCH", "var(--gold)"], error: ["FEHLERSUCHE", "var(--red)"], concept: ["VERSTÄNDNIS", "var(--muted)"], context: ["SACHAUFGABE", "var(--pink)"], image: ["BILDAUFGABE", "var(--lime)"], calc: ["RECHENAUFGABE", "var(--cyan)"] };
+
+    function openLevel(bpeId, lfsId, lv) {
+        const st = status(lfsId, lv), v = lvInfo(lv);
+        if (st === "locked") { const prev = lvInfo("ABC"["ABC".indexOf(lv) - 1]); toast(`🔒 ERST ${prev.name} ABSCHLIESSEN – DANN WIRD ${v.name} FREIGESCHALTET.`); return; }
+        state.bpeId = bpeId; state.lfsId = lfsId; state.lv = lv;
+        const r = save.levels[lvKey(lfsId, lv)];
+        marks = new Set(r ? r.correct : []); checking = false;
+        renderTask(); show("tasks"); window.scrollTo(0, 0);
+    }
+
+    function renderTask() {
+        const b = DB.bpes.find(x => x.id === state.bpeId), lfsList = DB.lfs[state.bpeId];
+        const li = lfsList.findIndex(l => l.id === state.lfsId), l = lfsList[li], v = lvInfo(state.lv);
+        const t = DB.tasks[lvKey(state.lfsId, state.lv)];
+        $("t-tag").textContent = `WORLD ${b.nr} · STAGE ${b.nr}-${li + 1} · ${b.name.toUpperCase()}`;
+        $("t-title").textContent = l.title.toUpperCase();
+        $("t-desc").textContent = t.desc;
+        $("t-diff").textContent = `LV${v.nr} · ${v.name}`; $("t-diff").style.color = `var(--lvl-${v.id})`;
+        renderTaskState();
+
+        $("ex-q").innerHTML = t.example.q;
+        $("ex-img").innerHTML = t.example.svg ? `<div class="task-image">${t.example.svg}</div>` : "";
+        $("ex-steps").innerHTML = t.example.steps.map(s => `<li>${s}</li>`).join("");
+        $("ex-steps").classList.remove("open"); $("btn-steps").textContent = "LÖSUNGSWEG DES BEISPIELS ANZEIGEN";
+
+        $("quests").innerHTML = t.exercises.map((e, i) => {
+            const tag = TAGS[e.type] ? `<span class="tag" style="color:${TAGS[e.type][1]}">${TAGS[e.type][0]}</span><br>` : "";
+            return `<div class="quest" id="q${i}">
+                <div class="q-nr">AUFGABE ${i + 1}<small>+${XP_PER_TASK} XP</small></div>
+                <div>${tag}<div class="q">${e.q}</div>${e.svg ? `<div class="task-image">${e.svg}</div>` : ""}</div>
+                <button class="mark" onclick="toggleMark(${i})"></button>
+            </div>`;
+        }).join("");
+        renderMarks(); renderFinish();
+    }
+    function renderTaskState() {
+        const st = status(state.lfsId, state.lv), r = save.levels[lvKey(state.lfsId, state.lv)];
+        $("t-state").innerHTML = st === "ok" ? `<span style="color:var(--lime)">✔ GESCHAFFT · ${r.correct.length}/5</span>`
+            : st === "help" ? `<span style="color:var(--amber)">! HILFE HOLEN · ${r.correct.length}/5</span>`
+            : `<span style="color:var(--cyan)">▶ IN BEARBEITUNG</span>`;
+    }
+    function renderMarks() {
+        $("quests").classList.toggle("checking", checking);
+        document.querySelectorAll(".quest").forEach((q, i) => {
+            q.classList.toggle("correct", checking && marks.has(i));
+            q.querySelector(".mark").textContent = marks.has(i) ? "✔ RICHTIG" : "RICHTIG?";
+        });
+        const c = $("counter"); if (c) c.innerHTML = `RICHTIG MARKIERT: <b>${marks.size} / 5</b> · ZUM SCHAFFEN NÖTIG: ${PASS}`;
+    }
+    function toggleMark(i) { if (!checking) return; marks.has(i) ? marks.delete(i) : marks.add(i); renderMarks(); }
+
+    function renderFinish() {
+        const k = lvKey(state.lfsId, state.lv), r = save.levels[k], f = $("finish");
+        if (r && !checking) {
+            const ok = r.correct.length >= PASS;
+            f.innerHTML = `<h2>LEVEL ABGESCHLOSSEN</h2>
+                <div class="result ${ok ? "ok" : "help"}"><div class="score">${r.correct.length}/5</div>
+                <p>${ok ? "Level geschafft! Weiter so." : "Weniger als 4 Aufgaben richtig – bitte deine Mathelehrkraft um Hilfe."}<br><span style="color:var(--muted)">Abgeschlossen am ${fmtDate(r.date)} · richtig: ${r.correct.length ? r.correct.map(i => "Aufgabe " + (i + 1)).join(", ") : "keine"}</span></p></div>
+                <div class="finish-actions">${nextBtn()}<button class="neon ghost" onclick="startRecheck()">ERGEBNIS NEU BEWERTEN</button></div>`;
+            return;
+        }
+        f.innerHTML = `<h2>LEVEL ABSCHLIESSEN</h2>
+            <ol class="flow">
+                <li><span class="n">1</span><span>Löse alle 5 Aufgaben auf einem Blatt in <b>GoodNotes</b>.</span></li>
+                <li><span class="n">2</span><span>Reiche dein Blatt bei der passenden Aufgabe im <b>Moodle-Kurs</b> ein. Danach erhältst du dort automatisch die Lösungen.</span></li>
+                <li><span class="n">3</span><span>Vergleiche deine Ergebnisse mit den Lösungen und markiere oben jede Aufgabe, die du <b>richtig</b> gelöst hast.</span></li>
+            </ol>
+            <label class="confirm"><input type="checkbox" id="chk-submitted" ${checking ? "checked" : ""} onchange="setChecking(this.checked)">
+                <span>Ich habe meine Lösungen in Moodle eingereicht und die Lösungen erhalten.</span></label>
+            <div class="counter" id="counter"></div>
+            <div class="finish-actions"><button class="neon lime" id="btn-finish" ${checking ? "" : "disabled"} onclick="finishLevel()">LEVEL ABSCHLIESSEN</button>
+            ${r ? `<button class="neon ghost" onclick="cancelRecheck()">ABBRECHEN</button>` : ""}</div>`;
+        renderMarks();
+    }
+    function setChecking(on) {
+        checking = on; $("btn-finish").disabled = !on; renderMarks();
+        if (on) { toast("MARKIERE JETZT DIE RICHTIG GELÖSTEN AUFGABEN"); $("quests").scrollIntoView({ behavior: "smooth", block: "start" }); }
+    }
+    function startRecheck() { checking = true; renderFinish(); }
+    function cancelRecheck() { const r = save.levels[lvKey(state.lfsId, state.lv)]; marks = new Set(r ? r.correct : []); checking = false; renderFinish(); renderMarks(); }
+
+    function nextLevel() { const i = "ABC".indexOf(state.lv); return i < 2 ? lvInfo("ABC"[i + 1]) : null; }
+    function nextBtn() { const n = nextLevel(); return n ? `<button class="neon" onclick="openLevel(state.bpeId,state.lfsId,'${n.id}')">WEITER ZU ${n.name} ▶</button>` : `<button class="neon" onclick="goHome(true)">ZUR ÜBERSICHT</button>`; }
+
+    function finishLevel() {
+        if (!checking) return;
+        const n = marks.size, ok = n >= PASS, nx = nextLevel(), v = lvInfo(state.lv);
+        save.levels[lvKey(state.lfsId, state.lv)] = { done: true, correct: [...marks].sort(), date: today() };
+        persist(); checking = false; renderHud(); renderTaskState(); renderFinish();
+        const unlock = nx ? `<div class="pix">🔓 ${nx.name} FREIGESCHALTET</div>` : `<div class="pix">ALLE LEVEL DIESER STAGE ABGESCHLOSSEN</div>`;
+        $("ov-card").className = "ov-card " + (ok ? "ok" : "help");
+        $("ov-card").innerHTML = ok
+            ? `<h2>STAGE CLEAR!</h2><div class="pix">${v.name} GESCHAFFT · ${n}/5 RICHTIG · +${n * XP_PER_TASK} XP</div>${unlock}<p>Stark! Das Level ist jetzt im Raster grün markiert.</p>`
+            : `<h2>HILFE ANFORDERN</h2><div class="pix">${n}/5 RICHTIG · +${n * XP_PER_TASK} XP</div><p><b>Bitte deine Mathelehrkraft um Hilfe.</b> Besprich mit ihr die Aufgaben, die noch nicht geklappt haben, damit du das Thema sicher beherrschst.</p>${unlock}`;
+        $("ov-card").innerHTML += `<div class="ov-actions">${nx ? `<button class="neon" onclick="closeResult();openLevel(state.bpeId,state.lfsId,'${nx.id}')">WEITER ZU ${nx.name} ▶</button>` : ""}<button class="neon ghost" onclick="closeResult();goHome(true)">ZUR ÜBERSICHT</button></div>`;
+        $("ov-result").classList.add("show");
+    }
+    function closeResult() { $("ov-result").classList.remove("show"); }
+    function toggleSteps() { const s = $("ex-steps"); s.classList.toggle("open"); $("btn-steps").textContent = s.classList.contains("open") ? "LÖSUNGSWEG AUSBLENDEN" : "LÖSUNGSWEG DES BEISPIELS ANZEIGEN"; }
+
+    /* ================= SPIELSTAND SICHERN / LADEN ================= */
+    function encodeSave() { return "LN1-" + btoa(unescape(encodeURIComponent(JSON.stringify(save)))); }
+    function decodeSave(code) {
+        const s = String(code).trim();
+        if (s.startsWith("{")) return sanitize(JSON.parse(s));
+        return sanitize(JSON.parse(decodeURIComponent(escape(atob(s.replace(/^LN1-/, "").replace(/\s+/g, ""))))));
+    }
+    function openSave() {
+        $("in-name").value = save.name; $("out-code").value = encodeSave(); $("in-code").value = "";
+        const n = Object.keys(save.levels).length;
+        $("save-info").textContent = `${n} von 54 Level abgeschlossen · ${totalXP()} XP · ` + (storageOK ? "automatisches Speichern auf diesem Gerät ist aktiv." : "automatisches Speichern ist auf diesem Gerät NICHT möglich!");
+        $("ov-save").classList.add("show");
+    }
+    function closeSave() { $("ov-save").classList.remove("show"); }
+    function setName(v) { save.name = v.slice(0, 40); persist(); renderHud(); $("out-code").value = encodeSave(); }
+    function copyCode() {
+        const ta = $("out-code"); ta.select();
+        const done = () => toast("SPIELSTAND-CODE KOPIERT");
+        if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(ta.value).then(done, () => { document.execCommand("copy"); done(); });
+        else { document.execCommand("copy"); done(); }
+    }
+    function downloadSave() {
+        const blob = new Blob([JSON.stringify(save, null, 1)], { type: "application/json" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+        a.download = `Spielstand_Mathe_${(save.name || "Lernnavigator").replace(/[^\wäöüÄÖÜß-]+/g, "_")}_${today()}.json`;
+        document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+    function applyLoaded(s) {
+        if (!confirm(`Spielstand${s.name ? " von " + s.name : ""} mit ${Object.keys(s.levels).length} abgeschlossenen Level laden? Der aktuelle Spielstand wird ersetzt.`)) return;
+        save = s; persist(); closeSave(); goHome(); toast("SPIELSTAND GELADEN");
+    }
+    function loadCode() { try { applyLoaded(decodeSave($("in-code").value)); } catch (e) { toast("UNGÜLTIGER CODE – BITTE PRÜFEN"); } }
+    function loadFile(input) {
+        const f = input.files[0]; if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => { try { applyLoaded(decodeSave(rd.result)); } catch (e) { toast("DATEI KONNTE NICHT GELESEN WERDEN"); } input.value = ""; };
+        rd.readAsText(f);
+    }
+    function resetSave() {
+        if (!confirm("Wirklich den gesamten Spielstand löschen? Alle Level werden wieder gesperrt (außer ROOKIE).")) return;
+        save = { v: 1, name: save.name, levels: {} }; persist(); closeSave(); goHome(); toast("SPIELSTAND ZURÜCKGESETZT");
+    }
+
+    /* ================= START ================= */
+    $("rules").innerHTML = RULES.map(r => `<li>${r}</li>`).join("");
+    const hadSave = loadLocal();
+    if (!hadSave) $("rules-box").open = true;     // beim ersten Besuch die Spielregeln aufklappen
+    persist();
+    renderHome();
+    document.addEventListener("keydown", e => { if (e.key === "Escape") { closeSave(); closeResult(); } });
+</script>
+</body>
+</html>
